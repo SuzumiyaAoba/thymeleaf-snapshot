@@ -147,6 +147,77 @@ src/test/resources/
       shouldRenderMultipleStates[logged-out].html
 ```
 
+## Sample
+
+Working examples are in the [`sample/`](sample/) subproject. Run them with:
+
+```bash
+./gradlew :sample:test
+```
+
+### [ProductListTest](sample/src/test/java/com/github/suzumiyaaoba/thymeleaf/snapshot/sample/ProductListTest.java)
+
+Renders a product list from a POJO list. Uses `prettyPrint = true` so the stored snapshot is human-readable.
+
+```java
+@ExtendWith(ThymeleafSnapshotExtension.class)
+@SnapshotConfig(prettyPrint = true)
+class ProductListTest {
+
+    @SnapshotTest(template = "product-list")
+    void shouldRenderProductList(Snapshot snapshot) {
+        var products = List.of(
+                new Product("Widget Pro", "$49.99", true),
+                new Product("Gadget Max", "$129.00", true),
+                new Product("Doohickey", "$9.99", false)
+        );
+        snapshot.setVariable("pageTitle", "Our Products")
+                .setVariable("products", products)
+                .assertMatchesSnapshot();
+    }
+}
+```
+
+### [UserProfileTest](sample/src/test/java/com/github/suzumiyaaoba/thymeleaf/snapshot/sample/UserProfileTest.java)
+
+Asserts two rendering states (admin / member) from a single test method using named snapshots and `clearVariables()`.
+
+```java
+@SnapshotTest(template = "user-profile")
+void shouldRenderDifferentRoles(Snapshot snapshot) {
+    snapshot.setVariable("user", new User("Alice", "Platform engineer", "admin"))
+            .assertMatchesSnapshot("admin");
+
+    snapshot.clearVariables()
+            .setVariable("user", new User("Bob", "Open-source contributor", "member"))
+            .assertMatchesSnapshot("member");
+}
+```
+
+Produces two snapshot files:
+```
+__snapshots__/...UserProfileTest/shouldRenderDifferentRoles[admin].html
+__snapshots__/...UserProfileTest/shouldRenderDifferentRoles[member].html
+```
+
+### [WelcomeEmailTest](sample/src/test/java/com/github/suzumiyaaoba/thymeleaf/snapshot/sample/WelcomeEmailTest.java)
+
+Embeds the template string directly in the annotation — useful for small fragments or email bodies.
+
+```java
+@SnapshotTest(inlineTemplate = """
+        <div class="email">
+          <h2 th:text="|Welcome, ${name}!|">Welcome!</h2>
+          <a th:href="${activationUrl}" class="cta">Activate Account</a>
+        </div>
+        """)
+void shouldRenderWelcomeEmail(Snapshot snapshot) {
+    snapshot.setVariable("name", "Alice")
+            .setVariable("activationUrl", "https://example.com/activate/abc123")
+            .assertMatchesSnapshot();
+}
+```
+
 ## License
 
 [MIT](https://opensource.org/licenses/MIT)
