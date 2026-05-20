@@ -1,0 +1,189 @@
+package com.github.suzumiyaaoba.thymeleaf.snapshot;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Objects;
+
+/**
+ * Manages snapshot file storage, retrieval, and comparison.
+ *
+ * <p>Snapshot files are stored under the configured snapshot directory
+ * (default: {@code src/test/resources/__snapshots__/}), organized by
+ * test class and method name.</p>
+ *
+ * <p>File naming convention:</p>
+ * <pre>
+ * __snapshots__/
+ *   com.example.MyTest/
+ *     testMethodName.html
+ *     testMethodName[snapshot-name].html
+ * </pre>
+ */
+public final class SnapshotManager {
+
+    private final Path snapshotBaseDir;
+
+    /**
+     * Creates a new snapshot manager that auto-detects the project root
+     * and stores snapshots under {@code src/test/resources/<snapshotDirName>/}.
+     *
+     * @param snapshotDirName the snapshot directory name (e.g., {@code "__snapshots__"})
+     * @throws NullPointerException if snapshotDirName is null
+     */
+    public SnapshotManager(String snapshotDirName) {
+        Objects.requireNonNull(snapshotDirName, "snapshotDirName must not be null");
+        this.snapshotBaseDir = resolveSnapshotBaseDir(snapshotDirName);
+    }
+
+    /**
+     * Creates a new snapshot manager with an explicit base directory.
+     *
+     * <p>This constructor is primarily intended for testing, allowing
+     * the snapshot directory to be injected (e.g., using {@code @TempDir}).</p>
+     *
+     * @param snapshotBaseDir the base directory for snapshot storage
+     * @throws NullPointerException if snapshotBaseDir is null
+     */
+    SnapshotManager(Path snapshotBaseDir) {
+        this.snapshotBaseDir = Objects.requireNonNull(snapshotBaseDir, "snapshotBaseDir must not be null");
+    }
+
+    /**
+     * Resolves the snapshot file path for a given test.
+     *
+     * @param testClassName  the fully qualified test class name
+     * @param testMethodName the test method name
+     * @param snapshotName   optional snapshot name (for multiple snapshots per test), may be {@code null}
+     * @return the path to the snapshot file
+     * @throws NullPointerException if testClassName or testMethodName is null
+     */
+    public Path resolveSnapshotPath(String testClassName, String testMethodName, String snapshotName) {
+        Objects.requireNonNull(testClassName, "testClassName must not be null");
+        Objects.requireNonNull(testMethodName, "testMethodName must not be null");
+
+        String fileName;
+        if (snapshotName != null && !snapshotName.isEmpty()) {
+            fileName = testMethodName + "[" + snapshotName + "].html";
+        } else {
+            fileName = testMethodName + ".html";
+        }
+        return snapshotBaseDir.resolve(testClassName).resolve(fileName);
+    }
+
+    /**
+     * Checks whether a snapshot file exists.
+     *
+     * @param snapshotPath the path to the snapshot file
+     * @return {@code true} if the snapshot file exists
+     * @throws NullPointerException if snapshotPath is null
+     */
+    public boolean snapshotExists(Path snapshotPath) {
+        Objects.requireNonNull(snapshotPath, "snapshotPath must not be null");
+        return Files.exists(snapshotPath);
+    }
+
+    /**
+     * Reads the content of a stored snapshot file.
+     *
+     * @param snapshotPath the path to the snapshot file
+     * @return the snapshot content
+     * @throws NullPointerException if snapshotPath is null
+     * @throws UncheckedIOException if the file cannot be read
+     */
+    public String readSnapshot(Path snapshotPath) {
+        Objects.requireNonNull(snapshotPath, "snapshotPath must not be null");
+        try {
+            return Files.readString(snapshotPath, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to read snapshot: " + snapshotPath, e);
+        }
+    }
+
+    /**
+     * Writes content to a snapshot file, creating parent directories if necessary.
+     *
+     * @param snapshotPath the path to the snapshot file
+     * @param content      the content to write
+     * @throws NullPointerException if snapshotPath or content is null
+     * @throws UncheckedIOException if the file cannot be written
+     */
+    public void writeSnapshot(Path snapshotPath, String content) {
+        Objects.requireNonNull(snapshotPath, "snapshotPath must not be null");
+        Objects.requireNonNull(content, "content must not be null");
+        try {
+            Files.createDirectories(snapshotPath.getParent());
+            Files.writeString(snapshotPath, content, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to write snapshot: " + snapshotPath, e);
+        }
+    }
+
+    /**
+     * Compares two content strings for equality.
+     *
+     * @param expected the expected content
+     * @param actual   the actual content
+     * @return {@code true} if the contents are equal
+     */
+    public boolean matches(String expected, String actual) {
+        return Objects.equals(expected, actual);
+    }
+
+    /**
+     * Returns the base directory for snapshot storage.
+     *
+     * @return the snapshot base directory path
+     */
+    public Path getSnapshotBaseDir() {
+        return snapshotBaseDir;
+    }
+
+    private static Path resolveSnapshotBaseDir(String snapshotDirName) {
+        // Allow explicit override via system property
+        String override = System.getProperty(ThymeleafSnapshotExtension.BASE_DIR_PROPERTY);
+        if (override != null && !override.isBlank()) {
+            return Paths.get(override).resolve(snapshotDirName);
+        }
+
+        // Try to find the project root by looking for test resources on the classpath
+        // and navigating up to the project root
+        URL testResourcesUrl = Thread.currentThread().getContextClassLoader().getResource("");
+        if (testResourcesUrl != null) {
+            try {
+                Path classesDir = Paths.get(testResourcesUrl.toURI());
+                // Navigate from build/classes/java/test or build/resources/test to project root
+                Path projectRoot = findProjectRoot(classesDir);
+                return projectRoot.resolve("src").resolve("test").resolve("resources").resolve(snapshotDirName);
+            } catch (URISyntaxException e) {
+                // Fall through to default
+            }
+        }
+
+        // Fallback: use current working directory
+        return Paths.get("src", "test", "resources", snapshotDirName);
+    }
+
+    private static Path findProjectRoot(Path startPath) {
+        Path current = startPath;
+        while (current != null) {
+            if (Files.exists(current.resolve("build.gradle"))
+                    || Files.exists(current.resolve("build.gradle.kts"))
+                    || Files.exists(current.resolve("pom.xml"))) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        // Fallback: assume we're 4 levels deep (build/classes/java/test)
+        Path root = startPath;
+        for (int i = 0; i < 4 && root.getParent() != null; i++) {
+            root = root.getParent();
+        }
+        return root;
+    }
+}
