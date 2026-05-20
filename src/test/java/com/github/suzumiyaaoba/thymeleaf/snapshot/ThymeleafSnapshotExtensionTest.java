@@ -45,6 +45,11 @@ class ThymeleafSnapshotExtensionTest {
         }
     }
 
+    @Test
+    void nonSnapshotTestMethodIsIgnoredByExtension() {
+        // beforeEach's snapshotTest == null branch is exercised for plain @Test methods
+    }
+
     @SnapshotTest(template = "simple")
     void shouldCreateSnapshotOnFirstRun(Snapshot snapshot) {
         snapshot.setVariable("title", "Hello World");

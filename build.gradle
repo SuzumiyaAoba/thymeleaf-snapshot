@@ -1,6 +1,7 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
+    id 'jacoco'
 }
 
 group = 'com.github.suzumiyaaoba'
@@ -46,7 +47,30 @@ tasks.named('test') {
         showStackTraces true
         exceptionFormat 'full'
     }
+    finalizedBy jacocoTestReport
 }
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+jacocoTestCoverageVerification {
+    violationRules {
+        rule {
+            limit {
+                counter = 'INSTRUCTION'
+                value = 'COVEREDRATIO'
+                minimum = 0.90
+            }
+        }
+    }
+}
+
+check.dependsOn jacocoTestCoverageVerification
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'

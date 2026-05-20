@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -96,6 +97,23 @@ class SnapshotManagerTest {
         manager.writeSnapshot(path, "second version");
 
         assertEquals("second version", manager.readSnapshot(path));
+    }
+
+    @Test
+    void readSnapshot_throwsUncheckedIOExceptionWhenFileMissing() {
+        Path missing = tempDir.resolve("nonexistent").resolve("file.html");
+
+        assertThrows(UncheckedIOException.class, () -> manager.readSnapshot(missing));
+    }
+
+    @Test
+    void writeSnapshot_throwsUncheckedIOExceptionOnIOError() throws IOException {
+        // Place a regular file where writeSnapshot expects a directory
+        Path blockingFile = tempDir.resolve("com.example.Blocked");
+        Files.createFile(blockingFile);
+        Path snapshot = blockingFile.resolve("testMethod.html");
+
+        assertThrows(UncheckedIOException.class, () -> manager.writeSnapshot(snapshot, "content"));
     }
 
     @Test
