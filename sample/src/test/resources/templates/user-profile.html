@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="|${user.name}'s Profile|">Profile</title>
+</head>
+<body>
+<section class="profile">
+    <h1 th:text="${user.name}">Username</h1>
+    <p class="bio" th:text="${user.bio}">Bio</p>
+    <div class="role">
+        <span th:text="${user.role}">Role</span>
+        <span th:if="${user.role == 'admin'}" class="admin-badge">&#9733; Admin</span>
+    </div>
+    <div th:if="${user.role == 'admin'}" class="admin-panel">
+        <h2>Admin Controls</h2>
+        <ul>
+            <li><a href="#">Manage Users</a></li>
+            <li><a href="#">System Settings</a></li>
+            <li><a href="#">View Audit Log</a></li>
+        </ul>
+    </div>
+</section>
+</body>
+</html>

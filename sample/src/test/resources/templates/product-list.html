@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${pageTitle}">Products</title>
+</head>
+<body>
+<main>
+    <h1 th:text="${pageTitle}">Product List</h1>
+    <p th:if="${#lists.isEmpty(products)}" class="empty">No products available.</p>
+    <ul th:unless="${#lists.isEmpty(products)}" class="product-list">
+        <li th:each="product : ${products}" class="product-item">
+            <span class="name" th:text="${product.name}">Name</span>
+            <span class="price" th:text="${product.price}">$0.00</span>
+            <span th:if="${product.available}" class="badge-available">In Stock</span>
+            <span th:unless="${product.available}" class="badge-unavailable">Sold Out</span>
+        </li>
+    </ul>
+</main>
+</body>
+</html>
