@@ -85,7 +85,8 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
             renderer,
             snapshotManager,
             testClass.getName(),
-            testMethod.getName(),
+            resolveSnapshotMethodName(
+                testMethod.getName(), context.getDisplayName(), context.getUniqueId()),
             snapshotTest,
             config.prettyPrint(),
             globalUpdate);
@@ -136,5 +137,25 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
   /** Returns the class-level store for caching shared objects. */
   private ExtensionContext.Store getClassStore(ExtensionContext context) {
     return context.getParent().orElse(context).getStore(NAMESPACE);
+  }
+
+  static String resolveSnapshotMethodName(
+      String methodName, String displayName, String uniqueId) {
+    if (!isTestTemplateInvocation(uniqueId)) {
+      return methodName;
+    }
+    return methodName + "[" + sanitizeSnapshotName(displayName) + "]";
+  }
+
+  private static boolean isTestTemplateInvocation(String uniqueId) {
+    return uniqueId != null && uniqueId.contains("test-template-invocation");
+  }
+
+  private static String sanitizeSnapshotName(String value) {
+    if (value == null || value.isBlank()) {
+      return "invocation";
+    }
+    String sanitized = value.replaceAll("[<>:\"/\\\\|?*\\p{Cntrl}]", "_").trim();
+    return sanitized.isEmpty() ? "invocation" : sanitized;
   }
 }
