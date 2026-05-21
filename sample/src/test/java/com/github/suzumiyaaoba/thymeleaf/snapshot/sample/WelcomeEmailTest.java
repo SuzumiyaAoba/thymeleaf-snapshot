@@ -6,13 +6,14 @@ import com.github.suzumiyaaoba.thymeleaf.snapshot.ThymeleafSnapshotExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Demonstrates inline templates: the template string is embedded directly
- * in the annotation, useful for small fragments or email bodies.
+ * Demonstrates inline templates: the template string is embedded directly in the annotation, useful
+ * for small fragments or email bodies.
  */
 @ExtendWith(ThymeleafSnapshotExtension.class)
 class WelcomeEmailTest {
 
-    private static final String TEMPLATE = """
+  private static final String TEMPLATE =
+      """
             <div class="email">
               <h2 th:text="|Welcome, ${name}!|">Welcome!</h2>
               <p>Your account has been created successfully.</p>
@@ -24,17 +25,19 @@ class WelcomeEmailTest {
             </div>
             """;
 
-    @SnapshotTest(inlineTemplate = TEMPLATE)
-    void shouldRenderWelcomeEmail(Snapshot snapshot) {
-        snapshot.setVariable("name", "Alice")
-                .setVariable("activationUrl", "https://example.com/activate/abc123")
-                .assertMatchesSnapshot();
-    }
+  @SnapshotTest(inlineTemplate = TEMPLATE)
+  void shouldRenderWelcomeEmail(Snapshot snapshot) {
+    snapshot
+        .setVariable("name", "Alice")
+        .setVariable("activationUrl", "https://example.com/activate/abc123")
+        .assertMatchesSnapshot();
+  }
 
-    @SnapshotTest(inlineTemplate = TEMPLATE)
-    void shouldRenderWelcomeEmailForDifferentUser(Snapshot snapshot) {
-        snapshot.setVariable("name", "Bob")
-                .setVariable("activationUrl", "https://example.com/activate/xyz789")
-                .assertMatchesSnapshot();
-    }
+  @SnapshotTest(inlineTemplate = TEMPLATE)
+  void shouldRenderWelcomeEmailForDifferentUser(Snapshot snapshot) {
+    snapshot
+        .setVariable("name", "Bob")
+        .setVariable("activationUrl", "https://example.com/activate/xyz789")
+        .assertMatchesSnapshot();
+  }
 }

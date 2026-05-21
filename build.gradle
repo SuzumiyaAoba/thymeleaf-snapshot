@@ -2,6 +2,7 @@ plugins {
     id 'java-library'
     id 'maven-publish'
     id 'jacoco'
+    id 'com.diffplug.spotless' version '6.25.0'
 }
 
 group = 'com.github.suzumiyaaoba'
@@ -72,6 +73,13 @@ jacocoTestCoverageVerification {
 }
 
 check.dependsOn jacocoTestCoverageVerification
+
+spotless {
+    java {
+        googleJavaFormat('1.22.0')
+        removeUnusedImports()
+    }
+}
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'

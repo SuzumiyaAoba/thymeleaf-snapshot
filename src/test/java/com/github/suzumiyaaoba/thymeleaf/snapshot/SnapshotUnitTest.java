@@ -1,172 +1,198 @@
 package com.github.suzumiyaaoba.thymeleaf.snapshot;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.lang.annotation.Annotation;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class SnapshotUnitTest {
 
-    @TempDir
-    Path tempDir;
+  @TempDir Path tempDir;
 
-    private ThymeleafRenderer renderer;
-    private SnapshotManager manager;
+  private ThymeleafRenderer renderer;
+  private SnapshotManager manager;
 
-    @BeforeEach
-    void setUp() {
-        renderer = new ThymeleafRenderer("templates/", ".html", "UTF-8");
-        manager = new SnapshotManager(tempDir);
-    }
+  @BeforeEach
+  void setUp() {
+    renderer = new ThymeleafRenderer("templates/", ".html", "UTF-8");
+    manager = new SnapshotManager(tempDir);
+  }
 
-    // --- helpers ---
+  // --- helpers ---
 
-    private static SnapshotTest annotation(String template, String inlineTemplate, boolean update) {
-        return new SnapshotTest() {
-            @Override public String template() { return template; }
-            @Override public String inlineTemplate() { return inlineTemplate; }
-            @Override public boolean update() { return update; }
-            @Override public Class<? extends Annotation> annotationType() { return SnapshotTest.class; }
-        };
-    }
+  private static SnapshotTest annotation(String template, String inlineTemplate, boolean update) {
+    return new SnapshotTest() {
+      @Override
+      public String template() {
+        return template;
+      }
 
-    private Snapshot inlineSnapshot(String tmpl, boolean prettyPrint, boolean globalUpdate) {
-        return new Snapshot(renderer, manager, "TC", "tm",
-                annotation("", tmpl, false), prettyPrint, globalUpdate);
-    }
+      @Override
+      public String inlineTemplate() {
+        return inlineTemplate;
+      }
 
-    private Path writeExistingSnapshot(String content) throws Exception {
-        Path snapshotPath = tempDir.resolve("TC/tm.html");
-        Files.createDirectories(snapshotPath.getParent());
-        Files.writeString(snapshotPath, content);
-        return snapshotPath;
-    }
+      @Override
+      public boolean update() {
+        return update;
+      }
 
-    // --- setVariables ---
+      @Override
+      public Class<? extends Annotation> annotationType() {
+        return SnapshotTest.class;
+      }
+    };
+  }
 
-    @Test
-    void setVariables_addsAllEntries() throws Exception {
-        var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, false);
+  private Snapshot inlineSnapshot(String tmpl, boolean prettyPrint, boolean globalUpdate) {
+    return new Snapshot(
+        renderer, manager, "TC", "tm", annotation("", tmpl, false), prettyPrint, globalUpdate);
+  }
 
-        assertThat(s.setVariables(Map.of("msg", "hello"))).isSameAs(s);
+  private Path writeExistingSnapshot(String content) throws Exception {
+    Path snapshotPath = tempDir.resolve("TC/tm.html");
+    Files.createDirectories(snapshotPath.getParent());
+    Files.writeString(snapshotPath, content);
+    return snapshotPath;
+  }
 
-        s.assertMatchesSnapshot();
-        assertThat(Files.readString(tempDir.resolve("TC/tm.html"))).contains("hello");
-    }
+  // --- setVariables ---
 
-    @Test
-    void setVariables_throwsOnNull() {
-        var s = inlineSnapshot("<p>x</p>", false, false);
-        assertThatThrownBy(() -> s.setVariables(null)).isInstanceOf(NullPointerException.class);
-    }
+  @Test
+  void setVariables_addsAllEntries() throws Exception {
+    var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, false);
 
-    // --- setLocale ---
+    assertThat(s.setVariables(Map.of("msg", "hello"))).isSameAs(s);
 
-    @Test
-    void setLocale_returnsThis() {
-        var s = inlineSnapshot("<p>x</p>", false, false);
-        assertThat(s.setLocale(Locale.ENGLISH)).isSameAs(s);
-    }
+    s.assertMatchesSnapshot();
+    assertThat(Files.readString(tempDir.resolve("TC/tm.html"))).contains("hello");
+  }
 
-    @Test
-    void setLocale_throwsOnNull() {
-        var s = inlineSnapshot("<p>x</p>", false, false);
-        assertThatThrownBy(() -> s.setLocale(null)).isInstanceOf(NullPointerException.class);
-    }
+  @Test
+  void setVariables_throwsOnNull() {
+    var s = inlineSnapshot("<p>x</p>", false, false);
+    assertThatThrownBy(() -> s.setVariables(null)).isInstanceOf(NullPointerException.class);
+  }
 
-    // --- clearVariables ---
+  // --- setLocale ---
 
-    @Test
-    void clearVariables_removesAllVariables() throws Exception {
-        var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, false);
-        s.setVariable("msg", "before");
+  @Test
+  void setLocale_returnsThis() {
+    var s = inlineSnapshot("<p>x</p>", false, false);
+    assertThat(s.setLocale(Locale.ENGLISH)).isSameAs(s);
+  }
 
-        assertThat(s.clearVariables()).isSameAs(s);
+  @Test
+  void setLocale_throwsOnNull() {
+    var s = inlineSnapshot("<p>x</p>", false, false);
+    assertThatThrownBy(() -> s.setLocale(null)).isInstanceOf(NullPointerException.class);
+  }
 
-        s.setVariable("msg", "after");
-        s.assertMatchesSnapshot();
-        assertThat(Files.readString(tempDir.resolve("TC/tm.html")))
-                .contains("after")
-                .doesNotContain("before");
-    }
+  // --- clearVariables ---
 
-    // --- assertMatchesSnapshot: prettyPrint ---
+  @Test
+  void clearVariables_removesAllVariables() throws Exception {
+    var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, false);
+    s.setVariable("msg", "before");
 
-    @Test
-    void assertMatchesSnapshot_prettyPrintsWhenEnabled() throws Exception {
-        var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", true, false);
-        s.setVariable("msg", "pretty");
+    assertThat(s.clearVariables()).isSameAs(s);
 
-        s.assertMatchesSnapshot();
+    s.setVariable("msg", "after");
+    s.assertMatchesSnapshot();
+    assertThat(Files.readString(tempDir.resolve("TC/tm.html")))
+        .contains("after")
+        .doesNotContain("before");
+  }
 
-        assertThat(Files.readString(tempDir.resolve("TC/tm.html")))
-                .as("prettyPrint should add newlines")
-                .contains("\n");
-    }
+  // --- assertMatchesSnapshot: prettyPrint ---
 
-    // --- assertMatchesSnapshot: update mode ---
+  @Test
+  void assertMatchesSnapshot_prettyPrintsWhenEnabled() throws Exception {
+    var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", true, false);
+    s.setVariable("msg", "pretty");
 
-    @Test
-    void assertMatchesSnapshot_updatesExistingSnapshotWhenGlobalUpdateTrue() throws Exception {
-        Path snapshotPath = writeExistingSnapshot("old content");
+    s.assertMatchesSnapshot();
 
-        var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, true);
-        s.setVariable("msg", "new");
-        s.assertMatchesSnapshot(); // should overwrite, not throw
+    assertThat(Files.readString(tempDir.resolve("TC/tm.html")))
+        .as("prettyPrint should add newlines")
+        .contains("\n");
+  }
 
-        assertThat(Files.readString(snapshotPath))
-                .contains("new")
-                .doesNotContain("old content");
-    }
+  // --- assertMatchesSnapshot: update mode ---
 
-    @Test
-    void assertMatchesSnapshot_updatesExistingSnapshotWhenAnnotationUpdateTrue() throws Exception {
-        Path snapshotPath = writeExistingSnapshot("old content");
+  @Test
+  void assertMatchesSnapshot_updatesExistingSnapshotWhenGlobalUpdateTrue() throws Exception {
+    Path snapshotPath = writeExistingSnapshot("old content");
 
-        var s = new Snapshot(renderer, manager, "TC", "tm",
-                annotation("", "<p th:text=\"${msg}\">x</p>", true), false, false);
-        s.setVariable("msg", "new");
-        s.assertMatchesSnapshot();
+    var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, true);
+    s.setVariable("msg", "new");
+    s.assertMatchesSnapshot(); // should overwrite, not throw
 
-        assertThat(Files.readString(snapshotPath)).contains("new");
-    }
+    assertThat(Files.readString(snapshotPath)).contains("new").doesNotContain("old content");
+  }
 
-    // --- assertMatchesSnapshot: mismatch ---
+  @Test
+  void assertMatchesSnapshot_updatesExistingSnapshotWhenAnnotationUpdateTrue() throws Exception {
+    Path snapshotPath = writeExistingSnapshot("old content");
 
-    @Test
-    void assertMatchesSnapshot_throwsMismatchWhenDiffers() throws Exception {
-        writeExistingSnapshot("<p>expected</p>");
+    var s =
+        new Snapshot(
+            renderer,
+            manager,
+            "TC",
+            "tm",
+            annotation("", "<p th:text=\"${msg}\">x</p>", true),
+            false,
+            false);
+    s.setVariable("msg", "new");
+    s.assertMatchesSnapshot();
 
-        var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, false);
-        s.setVariable("msg", "different");
+    assertThat(Files.readString(snapshotPath)).contains("new");
+  }
 
-        assertThatThrownBy(() -> s.assertMatchesSnapshot())
-                .isInstanceOf(SnapshotMismatchException.class);
-    }
+  // --- assertMatchesSnapshot: mismatch ---
 
-    // --- validateAnnotation ---
+  @Test
+  void assertMatchesSnapshot_throwsMismatchWhenDiffers() throws Exception {
+    writeExistingSnapshot("<p>expected</p>");
 
-    @Test
-    void validateAnnotation_throwsWhenBothTemplateAndInlineSpecified() {
-        assertThatThrownBy(() ->
-                new Snapshot(renderer, manager, "TC", "tm",
-                        annotation("tmpl", "inline", false), false, false))
-                .isInstanceOf(IllegalStateException.class);
-    }
+    var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, false);
+    s.setVariable("msg", "different");
 
-    @Test
-    void validateAnnotation_throwsWhenNeitherTemplateNorInlineSpecified() {
-        assertThatThrownBy(() ->
-                new Snapshot(renderer, manager, "TC", "tm",
-                        annotation("", "", false), false, false))
-                .isInstanceOf(IllegalStateException.class);
-    }
+    assertThatThrownBy(() -> s.assertMatchesSnapshot())
+        .isInstanceOf(SnapshotMismatchException.class);
+  }
+
+  // --- validateAnnotation ---
+
+  @Test
+  void validateAnnotation_throwsWhenBothTemplateAndInlineSpecified() {
+    assertThatThrownBy(
+            () ->
+                new Snapshot(
+                    renderer,
+                    manager,
+                    "TC",
+                    "tm",
+                    annotation("tmpl", "inline", false),
+                    false,
+                    false))
+        .isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void validateAnnotation_throwsWhenNeitherTemplateNorInlineSpecified() {
+    assertThatThrownBy(
+            () ->
+                new Snapshot(
+                    renderer, manager, "TC", "tm", annotation("", "", false), false, false))
+        .isInstanceOf(IllegalStateException.class);
+  }
 }
