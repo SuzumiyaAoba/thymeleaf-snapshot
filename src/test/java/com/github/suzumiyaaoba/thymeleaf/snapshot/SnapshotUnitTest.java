@@ -10,7 +10,8 @@ import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SnapshotUnitTest {
 
@@ -42,23 +43,29 @@ class SnapshotUnitTest {
                 annotation("", tmpl, false), prettyPrint, globalUpdate);
     }
 
+    private Path writeExistingSnapshot(String content) throws Exception {
+        Path snapshotPath = tempDir.resolve("TC/tm.html");
+        Files.createDirectories(snapshotPath.getParent());
+        Files.writeString(snapshotPath, content);
+        return snapshotPath;
+    }
+
     // --- setVariables ---
 
     @Test
     void setVariables_addsAllEntries() throws Exception {
         var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, false);
 
-        assertSame(s, s.setVariables(Map.of("msg", "hello")));
+        assertThat(s.setVariables(Map.of("msg", "hello"))).isSameAs(s);
 
         s.assertMatchesSnapshot();
-        String written = Files.readString(tempDir.resolve("TC/tm.html"));
-        assertTrue(written.contains("hello"));
+        assertThat(Files.readString(tempDir.resolve("TC/tm.html"))).contains("hello");
     }
 
     @Test
     void setVariables_throwsOnNull() {
         var s = inlineSnapshot("<p>x</p>", false, false);
-        assertThrows(NullPointerException.class, () -> s.setVariables(null));
+        assertThatThrownBy(() -> s.setVariables(null)).isInstanceOf(NullPointerException.class);
     }
 
     // --- setLocale ---
@@ -66,13 +73,13 @@ class SnapshotUnitTest {
     @Test
     void setLocale_returnsThis() {
         var s = inlineSnapshot("<p>x</p>", false, false);
-        assertSame(s, s.setLocale(Locale.ENGLISH));
+        assertThat(s.setLocale(Locale.ENGLISH)).isSameAs(s);
     }
 
     @Test
     void setLocale_throwsOnNull() {
         var s = inlineSnapshot("<p>x</p>", false, false);
-        assertThrows(NullPointerException.class, () -> s.setLocale(null));
+        assertThatThrownBy(() -> s.setLocale(null)).isInstanceOf(NullPointerException.class);
     }
 
     // --- clearVariables ---
@@ -82,13 +89,13 @@ class SnapshotUnitTest {
         var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, false);
         s.setVariable("msg", "before");
 
-        assertSame(s, s.clearVariables());
+        assertThat(s.clearVariables()).isSameAs(s);
 
         s.setVariable("msg", "after");
         s.assertMatchesSnapshot();
-        String written = Files.readString(tempDir.resolve("TC/tm.html"));
-        assertTrue(written.contains("after"));
-        assertFalse(written.contains("before"));
+        assertThat(Files.readString(tempDir.resolve("TC/tm.html")))
+                .contains("after")
+                .doesNotContain("before");
     }
 
     // --- assertMatchesSnapshot: prettyPrint ---
@@ -100,68 +107,66 @@ class SnapshotUnitTest {
 
         s.assertMatchesSnapshot();
 
-        String written = Files.readString(tempDir.resolve("TC/tm.html"));
-        assertTrue(written.contains("\n"), "prettyPrint should add newlines");
+        assertThat(Files.readString(tempDir.resolve("TC/tm.html")))
+                .as("prettyPrint should add newlines")
+                .contains("\n");
     }
 
     // --- assertMatchesSnapshot: update mode ---
 
     @Test
     void assertMatchesSnapshot_updatesExistingSnapshotWhenGlobalUpdateTrue() throws Exception {
-        Path snapshotPath = tempDir.resolve("TC/tm.html");
-        Files.createDirectories(snapshotPath.getParent());
-        Files.writeString(snapshotPath, "old content");
+        Path snapshotPath = writeExistingSnapshot("old content");
 
         var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, true);
         s.setVariable("msg", "new");
         s.assertMatchesSnapshot(); // should overwrite, not throw
 
-        String written = Files.readString(snapshotPath);
-        assertTrue(written.contains("new"));
-        assertFalse(written.contains("old content"));
+        assertThat(Files.readString(snapshotPath))
+                .contains("new")
+                .doesNotContain("old content");
     }
 
     @Test
     void assertMatchesSnapshot_updatesExistingSnapshotWhenAnnotationUpdateTrue() throws Exception {
-        Path snapshotPath = tempDir.resolve("TC/tm.html");
-        Files.createDirectories(snapshotPath.getParent());
-        Files.writeString(snapshotPath, "old content");
+        Path snapshotPath = writeExistingSnapshot("old content");
 
         var s = new Snapshot(renderer, manager, "TC", "tm",
                 annotation("", "<p th:text=\"${msg}\">x</p>", true), false, false);
         s.setVariable("msg", "new");
         s.assertMatchesSnapshot();
 
-        assertTrue(Files.readString(snapshotPath).contains("new"));
+        assertThat(Files.readString(snapshotPath)).contains("new");
     }
 
     // --- assertMatchesSnapshot: mismatch ---
 
     @Test
     void assertMatchesSnapshot_throwsMismatchWhenDiffers() throws Exception {
-        Path snapshotPath = tempDir.resolve("TC/tm.html");
-        Files.createDirectories(snapshotPath.getParent());
-        Files.writeString(snapshotPath, "<p>expected</p>");
+        writeExistingSnapshot("<p>expected</p>");
 
         var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, false);
         s.setVariable("msg", "different");
 
-        assertThrows(SnapshotMismatchException.class, () -> s.assertMatchesSnapshot());
+        assertThatThrownBy(() -> s.assertMatchesSnapshot())
+                .isInstanceOf(SnapshotMismatchException.class);
     }
 
     // --- validateAnnotation ---
 
     @Test
     void validateAnnotation_throwsWhenBothTemplateAndInlineSpecified() {
-        assertThrows(IllegalStateException.class, () ->
+        assertThatThrownBy(() ->
                 new Snapshot(renderer, manager, "TC", "tm",
-                        annotation("tmpl", "inline", false), false, false));
+                        annotation("tmpl", "inline", false), false, false))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
     void validateAnnotation_throwsWhenNeitherTemplateNorInlineSpecified() {
-        assertThrows(IllegalStateException.class, () ->
+        assertThatThrownBy(() ->
                 new Snapshot(renderer, manager, "TC", "tm",
-                        annotation("", "", false), false, false));
+                        annotation("", "", false), false, false))
+                .isInstanceOf(IllegalStateException.class);
     }
 }

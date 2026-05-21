@@ -2,7 +2,7 @@ package com.github.suzumiyaaoba.thymeleaf.snapshot;
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class ResolvedConfigTest {
 
@@ -15,15 +15,17 @@ class ResolvedConfigTest {
     )
     private static final class AnnotatedClass {}
 
+    private static void assertIsDefaults(ResolvedConfig config) {
+        assertThat(config.templatePrefix()).isEqualTo(ResolvedConfig.DEFAULT_TEMPLATE_PREFIX);
+        assertThat(config.templateSuffix()).isEqualTo(ResolvedConfig.DEFAULT_TEMPLATE_SUFFIX);
+        assertThat(config.snapshotDir()).isEqualTo(ResolvedConfig.DEFAULT_SNAPSHOT_DIR);
+        assertThat(config.prettyPrint()).isFalse();
+        assertThat(config.characterEncoding()).isEqualTo(ResolvedConfig.DEFAULT_CHARACTER_ENCODING);
+    }
+
     @Test
     void from_null_returnsDefaults() {
-        ResolvedConfig config = ResolvedConfig.from(null);
-
-        assertEquals(ResolvedConfig.DEFAULT_TEMPLATE_PREFIX, config.templatePrefix());
-        assertEquals(ResolvedConfig.DEFAULT_TEMPLATE_SUFFIX, config.templateSuffix());
-        assertEquals(ResolvedConfig.DEFAULT_SNAPSHOT_DIR, config.snapshotDir());
-        assertFalse(config.prettyPrint());
-        assertEquals(ResolvedConfig.DEFAULT_CHARACTER_ENCODING, config.characterEncoding());
+        assertIsDefaults(ResolvedConfig.from(null));
     }
 
     @Test
@@ -32,21 +34,15 @@ class ResolvedConfigTest {
 
         ResolvedConfig config = ResolvedConfig.from(annotation);
 
-        assertEquals("custom/", config.templatePrefix());
-        assertEquals(".htm", config.templateSuffix());
-        assertEquals("custom-snaps", config.snapshotDir());
-        assertTrue(config.prettyPrint());
-        assertEquals("UTF-16", config.characterEncoding());
+        assertThat(config.templatePrefix()).isEqualTo("custom/");
+        assertThat(config.templateSuffix()).isEqualTo(".htm");
+        assertThat(config.snapshotDir()).isEqualTo("custom-snaps");
+        assertThat(config.prettyPrint()).isTrue();
+        assertThat(config.characterEncoding()).isEqualTo("UTF-16");
     }
 
     @Test
     void defaults_matchConstants() {
-        ResolvedConfig config = ResolvedConfig.defaults();
-
-        assertEquals(ResolvedConfig.DEFAULT_TEMPLATE_PREFIX, config.templatePrefix());
-        assertEquals(ResolvedConfig.DEFAULT_TEMPLATE_SUFFIX, config.templateSuffix());
-        assertEquals(ResolvedConfig.DEFAULT_SNAPSHOT_DIR, config.snapshotDir());
-        assertFalse(config.prettyPrint());
-        assertEquals(ResolvedConfig.DEFAULT_CHARACTER_ENCODING, config.characterEncoding());
+        assertIsDefaults(ResolvedConfig.defaults());
     }
 }

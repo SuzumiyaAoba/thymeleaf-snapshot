@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class SnapshotMismatchExceptionTest {
 
@@ -17,13 +17,13 @@ class SnapshotMismatchExceptionTest {
         SnapshotMismatchException exception =
                 new SnapshotMismatchException(path, expected, actual);
 
-        String message = exception.getMessage();
-        assertNotNull(message);
-        assertTrue(message.contains("Snapshot mismatch for:"));
-        assertTrue(message.contains("test.html"));
-        assertTrue(message.contains("-<p>Hello</p>"));
-        assertTrue(message.contains("+<p>World</p>"));
-        assertTrue(message.contains("-Dsnapshot.update=true"));
+        assertThat(exception.getMessage())
+                .isNotNull()
+                .contains("Snapshot mismatch for:")
+                .contains("test.html")
+                .contains("-<p>Hello</p>")
+                .contains("+<p>World</p>")
+                .contains("-Dsnapshot.update=true");
     }
 
     @Test
@@ -35,9 +35,9 @@ class SnapshotMismatchExceptionTest {
         SnapshotMismatchException exception =
                 new SnapshotMismatchException(path, expected, actual);
 
-        assertEquals(expected, exception.getExpected());
-        assertEquals(actual, exception.getActual());
-        assertEquals(path, exception.getSnapshotPath());
+        assertThat(exception.getExpected()).isEqualTo(expected);
+        assertThat(exception.getActual()).isEqualTo(actual);
+        assertThat(exception.getSnapshotPath()).isEqualTo(path);
     }
 
     @Test
@@ -45,7 +45,7 @@ class SnapshotMismatchExceptionTest {
         SnapshotMismatchException exception =
                 new SnapshotMismatchException(Path.of("test.html"), "a", "b");
 
-        assertInstanceOf(AssertionError.class, exception);
+        assertThat(exception).isInstanceOf(AssertionError.class);
     }
 
     @Test
@@ -55,10 +55,11 @@ class SnapshotMismatchExceptionTest {
 
         String diff = SnapshotMismatchException.generateUnifiedDiff(expected, actual);
 
-        assertTrue(diff.contains("--- expected (stored snapshot)"));
-        assertTrue(diff.contains("+++ actual (rendered output)"));
-        assertTrue(diff.contains("-line5"));
-        assertTrue(diff.contains("+modified5"));
+        assertThat(diff)
+                .contains("--- expected (stored snapshot)")
+                .contains("+++ actual (rendered output)")
+                .contains("-line5")
+                .contains("+modified5");
     }
 
     @Test
@@ -68,10 +69,12 @@ class SnapshotMismatchExceptionTest {
 
         String diff = SnapshotMismatchException.generateUnifiedDiff(expected, actual);
 
-        assertTrue(diff.contains("+inserted"), "inserted line should appear as addition");
-        assertFalse(diff.contains("-line1"), "unchanged line1 should not appear as removal");
-        assertFalse(diff.contains("-line2"), "unchanged line2 should not appear as removal");
-        assertFalse(diff.contains("-line3"), "unchanged line3 should not appear as removal");
+        assertThat(diff)
+                .as("inserted line should appear as addition")
+                .contains("+inserted");
+        assertThat(diff)
+                .as("unchanged lines should not appear as removals")
+                .doesNotContain("-line1", "-line2", "-line3");
     }
 
     @Test
@@ -81,9 +84,12 @@ class SnapshotMismatchExceptionTest {
 
         String diff = SnapshotMismatchException.generateUnifiedDiff(expected, actual);
 
-        assertTrue(diff.contains("-deleted"), "deleted line should appear as removal");
-        assertFalse(diff.contains("+line1"), "unchanged line1 should not appear as addition");
-        assertFalse(diff.contains("+line3"), "unchanged line3 should not appear as addition");
+        assertThat(diff)
+                .as("deleted line should appear as removal")
+                .contains("-deleted");
+        assertThat(diff)
+                .as("unchanged lines should not appear as additions")
+                .doesNotContain("+line1", "+line3");
     }
 
     @Test
@@ -99,6 +105,8 @@ class SnapshotMismatchExceptionTest {
         String diff = SnapshotMismatchException.generateUnifiedDiff(expected, actual);
 
         long hunkCount = diff.lines().filter(l -> l.startsWith("@@")).count();
-        assertTrue(hunkCount >= 2, "Expected multiple hunks for distant changes, but got:\n" + diff);
+        assertThat(hunkCount)
+                .as("Expected multiple hunks for distant changes, but got:\n" + diff)
+                .isGreaterThanOrEqualTo(2);
     }
 }

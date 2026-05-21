@@ -10,7 +10,8 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SnapshotManagerTest {
 
@@ -33,28 +34,28 @@ class SnapshotManagerTest {
     void resolveSnapshotPathWithoutName() {
         Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", null);
 
-        assertEquals(tempDir.resolve("com.example.MyTest").resolve("testMethod.html"), path);
+        assertThat(path).isEqualTo(tempDir.resolve("com.example.MyTest").resolve("testMethod.html"));
     }
 
     @Test
     void resolveSnapshotPathWithName() {
         Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "mobile");
 
-        assertEquals(tempDir.resolve("com.example.MyTest").resolve("testMethod[mobile].html"), path);
+        assertThat(path).isEqualTo(tempDir.resolve("com.example.MyTest").resolve("testMethod[mobile].html"));
     }
 
     @Test
     void resolveSnapshotPathWithEmptyName() {
         Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "");
 
-        assertEquals(tempDir.resolve("com.example.MyTest").resolve("testMethod.html"), path);
+        assertThat(path).isEqualTo(tempDir.resolve("com.example.MyTest").resolve("testMethod.html"));
     }
 
     @Test
     void snapshotExistsReturnsFalseForMissing() {
         Path path = tempDir.resolve("nonexistent.html");
 
-        assertFalse(manager.snapshotExists(path));
+        assertThat(manager.snapshotExists(path)).isFalse();
     }
 
     @Test
@@ -64,8 +65,8 @@ class SnapshotManagerTest {
 
         manager.writeSnapshot(path, content);
 
-        assertTrue(manager.snapshotExists(path));
-        assertEquals(content, manager.readSnapshot(path));
+        assertThat(manager.snapshotExists(path)).isTrue();
+        assertThat(manager.readSnapshot(path)).isEqualTo(content);
     }
 
     @Test
@@ -75,18 +76,18 @@ class SnapshotManagerTest {
 
         manager.writeSnapshot(path, content);
 
-        assertTrue(Files.exists(path));
-        assertEquals(content, manager.readSnapshot(path));
+        assertThat(path).exists();
+        assertThat(manager.readSnapshot(path)).isEqualTo(content);
     }
 
     @Test
     void matchesReturnsTrueForEqualContent() {
-        assertTrue(manager.matches("hello", "hello"));
+        assertThat(manager.matches("hello", "hello")).isTrue();
     }
 
     @Test
     void matchesReturnsFalseForDifferentContent() {
-        assertFalse(manager.matches("hello", "world"));
+        assertThat(manager.matches("hello", "world")).isFalse();
     }
 
     @Test
@@ -96,14 +97,15 @@ class SnapshotManagerTest {
         manager.writeSnapshot(path, "first version");
         manager.writeSnapshot(path, "second version");
 
-        assertEquals("second version", manager.readSnapshot(path));
+        assertThat(manager.readSnapshot(path)).isEqualTo("second version");
     }
 
     @Test
     void readSnapshot_throwsUncheckedIOExceptionWhenFileMissing() {
         Path missing = tempDir.resolve("nonexistent").resolve("file.html");
 
-        assertThrows(UncheckedIOException.class, () -> manager.readSnapshot(missing));
+        assertThatThrownBy(() -> manager.readSnapshot(missing))
+                .isInstanceOf(UncheckedIOException.class);
     }
 
     @Test
@@ -113,7 +115,8 @@ class SnapshotManagerTest {
         Files.createFile(blockingFile);
         Path snapshot = blockingFile.resolve("testMethod.html");
 
-        assertThrows(UncheckedIOException.class, () -> manager.writeSnapshot(snapshot, "content"));
+        assertThatThrownBy(() -> manager.writeSnapshot(snapshot, "content"))
+                .isInstanceOf(UncheckedIOException.class);
     }
 
     @Test
@@ -122,9 +125,6 @@ class SnapshotManagerTest {
 
         SnapshotManager propertyManager = new SnapshotManager("__snapshots__");
 
-        assertEquals(
-                tempDir.resolve("__snapshots__"),
-                propertyManager.getSnapshotBaseDir()
-        );
+        assertThat(propertyManager.getSnapshotBaseDir()).isEqualTo(tempDir.resolve("__snapshots__"));
     }
 }
