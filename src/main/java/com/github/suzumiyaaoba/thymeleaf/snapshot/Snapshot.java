@@ -185,7 +185,7 @@ public final class Snapshot {
     String template = annotation.template();
     String inlineTemplate = annotation.inlineTemplate();
 
-    if (!template.isEmpty()) {
+    if (!template.isBlank()) {
       return renderer.render(template, variables, locale);
     } else {
       return renderer.renderInline(inlineTemplate, variables, locale);
@@ -193,8 +193,8 @@ public final class Snapshot {
   }
 
   private void validateAnnotation() {
-    boolean hasTemplate = !annotation.template().isEmpty();
-    boolean hasInlineTemplate = !annotation.inlineTemplate().isEmpty();
+    boolean hasTemplate = !annotation.template().isBlank();
+    boolean hasInlineTemplate = !annotation.inlineTemplate().isBlank();
 
     if (hasTemplate && hasInlineTemplate) {
       throw new IllegalStateException(
