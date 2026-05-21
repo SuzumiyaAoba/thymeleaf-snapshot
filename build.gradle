@@ -1,111 +1,114 @@
 plugins {
-    id 'java-library'
-    id 'maven-publish'
-    id 'jacoco'
-    id 'com.diffplug.spotless' version '6.25.0'
+	id 'java-library'
+	id 'maven-publish'
+	id 'jacoco'
+	id 'com.diffplug.spotless' version '6.25.0'
 }
 
 group = 'com.github.suzumiyaaoba'
 version = '0.1.0-SNAPSHOT'
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-    withSourcesJar()
-    withJavadocJar()
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+	withSourcesJar()
+	withJavadocJar()
 }
 
 repositories {
-    mavenCentral()
+	mavenCentral()
 }
 
 dependencies {
-    // Thymeleaf
-    api 'org.thymeleaf:thymeleaf:3.1.3.RELEASE'
+	// Thymeleaf
+	api 'org.thymeleaf:thymeleaf:3.1.3.RELEASE'
 
-    // JUnit 5
-    api 'org.junit.jupiter:junit-jupiter-api:5.11.4'
+	// JUnit 5
+	api 'org.junit.jupiter:junit-jupiter-api:5.11.4'
 
-    // HTML formatting (optional at runtime)
-    implementation 'org.jsoup:jsoup:1.18.3'
+	// HTML formatting (optional at runtime)
+	implementation 'org.jsoup:jsoup:1.18.3'
 
-    // Unified diff generation
-    implementation 'io.github.java-diff-utils:java-diff-utils:4.12'
+	// Unified diff generation
+	implementation 'io.github.java-diff-utils:java-diff-utils:4.12'
 
-    // Testing
-    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.11.4'
-    testImplementation 'org.assertj:assertj-core:3.27.3'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	// Testing
+	testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.11.4'
+	testImplementation 'org.assertj:assertj-core:3.27.3'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
-    useJUnitPlatform()
-    testLogging {
-        events 'passed', 'skipped', 'failed'
-        showExceptions true
-        showStackTraces true
-        exceptionFormat 'full'
-    }
-    finalizedBy jacocoTestReport
+	useJUnitPlatform()
+	testLogging {
+		events 'passed', 'skipped', 'failed'
+		showExceptions true
+		showStackTraces true
+		exceptionFormat 'full'
+	}
+	finalizedBy jacocoTestReport
 }
 
 jacocoTestReport {
-    dependsOn test
-    reports {
-        xml.required = true
-        html.required = true
-    }
+	dependsOn test
+	reports {
+		xml.required = true
+		html.required = true
+	}
 }
 
 jacocoTestCoverageVerification {
-    violationRules {
-        rule {
-            limit {
-                counter = 'INSTRUCTION'
-                value = 'COVEREDRATIO'
-                minimum = 0.90
-            }
-        }
-    }
+	violationRules {
+		rule {
+			limit {
+				counter = 'INSTRUCTION'
+				value = 'COVEREDRATIO'
+				minimum = 0.90
+			}
+		}
+	}
 }
 
 check.dependsOn jacocoTestCoverageVerification
 
 spotless {
-    java {
-        googleJavaFormat('1.22.0')
-        removeUnusedImports()
-    }
+	groovyGradle {
+		greclipse()
+	}
+	java {
+		googleJavaFormat('1.22.0')
+		removeUnusedImports()
+	}
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
-    options.compilerArgs += ['-parameters']
+	options.encoding = 'UTF-8'
+	options.compilerArgs += ['-parameters']
 }
 
 tasks.withType(Javadoc).configureEach {
-    options.encoding = 'UTF-8'
-    options.charSet = 'UTF-8'
+	options.encoding = 'UTF-8'
+	options.charSet = 'UTF-8'
 }
 
 publishing {
-    publications {
-        maven(MavenPublication) {
-            from components.java
-            pom {
-                name = 'Thymeleaf Snapshot Testing'
-                description = 'Snapshot testing library for Thymeleaf template rendering with JUnit 5 support'
-                url = 'https://github.com/SuzumiyaAoba/thymeleaf-snapshot'
-                licenses {
-                    license {
-                        name = 'MIT License'
-                        url = 'https://opensource.org/licenses/MIT'
-                    }
-                }
-            }
-        }
-    }
+	publications {
+		maven(MavenPublication) {
+			from components.java
+			pom {
+				name = 'Thymeleaf Snapshot Testing'
+				description = 'Snapshot testing library for Thymeleaf template rendering with JUnit 5 support'
+				url = 'https://github.com/SuzumiyaAoba/thymeleaf-snapshot'
+				licenses {
+					license {
+						name = 'MIT License'
+						url = 'https://opensource.org/licenses/MIT'
+					}
+				}
+			}
+		}
+	}
 }

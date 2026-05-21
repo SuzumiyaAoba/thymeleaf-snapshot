@@ -1,41 +1,44 @@
 plugins {
-    id 'java'
-    id 'com.diffplug.spotless' version '6.25.0'
+	id 'java'
+	id 'com.diffplug.spotless' version '6.25.0'
 }
 
 repositories {
-    mavenCentral()
+	mavenCentral()
 }
 
 java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
 }
 
 dependencies {
-    testImplementation project(':')
-    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.11.4'
-    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	testImplementation project(':')
+	testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.11.4'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
-    useJUnitPlatform()
-    testLogging {
-        events 'passed', 'skipped', 'failed'
-        showExceptions true
-        showStackTraces true
-        exceptionFormat 'full'
-    }
+	useJUnitPlatform()
+	testLogging {
+		events 'passed', 'skipped', 'failed'
+		showExceptions true
+		showStackTraces true
+		exceptionFormat 'full'
+	}
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
+	options.encoding = 'UTF-8'
 }
 
 spotless {
-    java {
-        googleJavaFormat('1.22.0')
-        removeUnusedImports()
-    }
+	groovyGradle {
+		greclipse()
+	}
+	java {
+		googleJavaFormat('1.22.0')
+		removeUnusedImports()
+	}
 }
