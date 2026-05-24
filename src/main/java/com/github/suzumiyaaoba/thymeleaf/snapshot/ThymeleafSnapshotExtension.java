@@ -139,8 +139,7 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
     return context.getParent().orElse(context).getStore(NAMESPACE);
   }
 
-  static String resolveSnapshotMethodName(
-      String methodName, String displayName, String uniqueId) {
+  static String resolveSnapshotMethodName(String methodName, String displayName, String uniqueId) {
     if (!isTestTemplateInvocation(uniqueId)) {
       return methodName;
     }
