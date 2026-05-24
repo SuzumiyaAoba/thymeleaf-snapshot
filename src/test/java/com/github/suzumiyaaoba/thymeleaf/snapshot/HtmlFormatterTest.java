@@ -19,7 +19,12 @@ class HtmlFormatterTest {
     String html = "<div>Hello</div>";
     String formatted = HtmlFormatter.prettyPrint(html);
 
-    assertThat(formatted).isNotNull().contains("<div>").contains("Hello").doesNotContain("<html>").doesNotContain("<body>");
+    assertThat(formatted)
+        .isNotNull()
+        .contains("<div>")
+        .contains("Hello")
+        .doesNotContain("<html>")
+        .doesNotContain("<body>");
   }
 
   @Test
@@ -27,7 +32,10 @@ class HtmlFormatterTest {
     String html = "<p>First</p><p>Second</p>";
     String formatted = HtmlFormatter.prettyPrint(html);
 
-    assertThat(formatted).contains("<p>First</p>").contains("<p>Second</p>").doesNotContain("<html>");
+    assertThat(formatted)
+        .contains("<p>First</p>")
+        .contains("<p>Second</p>")
+        .doesNotContain("<html>");
   }
 
   @Test

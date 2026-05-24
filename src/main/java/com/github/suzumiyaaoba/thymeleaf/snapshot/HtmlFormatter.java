@@ -10,8 +10,8 @@ import org.jsoup.parser.Parser;
  *
  * <p>Uses Jsoup to pretty-print HTML for more readable snapshots and meaningful diffs. Full
  * documents (starting with {@code <!DOCTYPE} or {@code <html}) are serialized as-is; fragments are
- * parsed with {@code parseBodyFragment} so they are never wrapped in unwanted {@code
- * <html>/<body>} elements.
+ * parsed with {@code parseBodyFragment} so they are never wrapped in unwanted {@code <html>/<body>}
+ * elements.
  */
 public final class HtmlFormatter {
 
