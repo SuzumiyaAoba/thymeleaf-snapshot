@@ -195,4 +195,22 @@ class SnapshotUnitTest {
                     renderer, manager, "TC", "tm", annotation("", "", false), false, false))
         .isInstanceOf(IllegalStateException.class);
   }
+
+  @Test
+  void validateAnnotation_throwsWhenTemplateIsBlank() {
+    assertThatThrownBy(
+            () ->
+                new Snapshot(
+                    renderer, manager, "TC", "tm", annotation("   ", "", false), false, false))
+        .isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void validateAnnotation_throwsWhenInlineTemplateIsBlank() {
+    assertThatThrownBy(
+            () ->
+                new Snapshot(
+                    renderer, manager, "TC", "tm", annotation("", "\n\t", false), false, false))
+        .isInstanceOf(IllegalStateException.class);
+  }
 }
