@@ -115,14 +115,16 @@ class SnapshotUnitTest {
 
   @Test
   void assertMatchesSnapshot_prettyPrintsWhenEnabled() throws Exception {
-    var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", true, false);
+    var s = inlineSnapshot("<div><p th:text=\"${msg}\">x</p></div>", true, false);
     s.setVariable("msg", "pretty");
 
     s.assertMatchesSnapshot();
 
     assertThat(Files.readString(tempDir.resolve("TC/tm.html")))
-        .as("prettyPrint should add newlines")
-        .contains("\n");
+        .as("prettyPrint should add newlines and not wrap in html/body")
+        .contains("\n")
+        .doesNotContain("<html>")
+        .doesNotContain("<body>");
   }
 
   // --- assertMatchesSnapshot: update mode ---
