@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path' | { read -r f; echo \"$f\" | grep -q '\\.java$' && ./gradlew spotlessApply --daemon -q 2>/dev/null || true; }",
+            "command": "jq -r '.tool_input.file_path' | { read -r f; echo \"$f\" | grep -q '\\.java$' && ./gradlew spotlessApply --daemon -q || true; }",
             "timeout": 60,
             "statusMessage": "Running Spotless..."
           }
