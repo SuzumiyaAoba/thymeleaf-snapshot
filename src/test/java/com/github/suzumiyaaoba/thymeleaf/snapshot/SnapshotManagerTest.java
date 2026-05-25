@@ -51,6 +51,39 @@ class SnapshotManagerTest {
   }
 
   @Test
+  void resolveSnapshotPathRejectsNameWithForwardSlash() {
+    assertThatThrownBy(
+            () ->
+                manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "mobile/landscape"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("mobile/landscape");
+  }
+
+  @Test
+  void resolveSnapshotPathRejectsNameWithBackslash() {
+    assertThatThrownBy(
+            () -> manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "a\\b"))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void resolveSnapshotPathRejectsNameWithColon() {
+    assertThatThrownBy(() -> manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "a:b"))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void resolveSnapshotPathRejectsNameWithOtherIllegalChars() {
+    for (char illegal : new char[] {'*', '?', '"', '<', '>', '|'}) {
+      String name = "snap" + illegal + "shot";
+      assertThatThrownBy(
+              () -> manager.resolveSnapshotPath("com.example.MyTest", "testMethod", name))
+          .as("should reject snapshotName containing '%s'", illegal)
+          .isInstanceOf(IllegalArgumentException.class);
+    }
+  }
+
+  @Test
   void snapshotExistsReturnsFalseForMissing() {
     Path path = tempDir.resolve("nonexistent.html");
 

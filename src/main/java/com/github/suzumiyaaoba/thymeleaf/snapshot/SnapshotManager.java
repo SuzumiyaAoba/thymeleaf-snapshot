@@ -72,6 +72,7 @@ public final class SnapshotManager {
 
     String fileName;
     if (snapshotName != null && !snapshotName.isEmpty()) {
+      validateSnapshotName(snapshotName);
       fileName = testMethodName + "[" + snapshotName + "].html";
     } else {
       fileName = testMethodName + ".html";
@@ -145,6 +146,15 @@ public final class SnapshotManager {
    */
   public Path getSnapshotBaseDir() {
     return snapshotBaseDir;
+  }
+
+  private static void validateSnapshotName(String snapshotName) {
+    if (snapshotName.chars().anyMatch(c -> "/\\:*?\"<>|".indexOf(c) >= 0)) {
+      throw new IllegalArgumentException(
+          "snapshotName contains illegal characters (/, \\, :, *, ?, \", <, >, |): \""
+              + snapshotName
+              + "\"");
+    }
   }
 
   private static Path resolveSnapshotBaseDir(String snapshotDirName) {
