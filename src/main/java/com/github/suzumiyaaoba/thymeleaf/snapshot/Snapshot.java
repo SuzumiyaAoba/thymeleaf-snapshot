@@ -13,6 +13,19 @@ import java.util.Objects;
  * It provides a fluent interface for setting template variables and asserting that the rendered
  * output matches a stored snapshot.
  *
+ * <h2>Concurrency contract</h2>
+ *
+ * <p><strong>This class is not thread-safe.</strong> Each instance is created per test invocation
+ * by {@link ThymeleafSnapshotExtension} and is intended to be used exclusively by the single thread
+ * that runs the test method. Do not share a {@code Snapshot} instance across threads or cache it
+ * beyond the scope of a single test invocation.
+ *
+ * <p>Users who enable JUnit 5 parallel test execution ({@code
+ * junit.jupiter.execution.parallel.enabled=true}) should be aware that each test method receives
+ * its own {@code Snapshot} instance, so parallel <em>methods</em> are safe. However, sharing the
+ * same instance between threads within a single test (e.g. via a manually created thread pool) will
+ * produce data races on the variables map and locale without any compile-time or runtime warning.
+ *
  * <h2>Usage Example</h2>
  *
  * <pre>{@code
@@ -49,7 +62,7 @@ public final class Snapshot {
   private final boolean shouldUpdate;
 
   private final Map<String, Object> variables = new LinkedHashMap<>();
-  private Locale locale = Locale.ROOT;
+  private volatile Locale locale = Locale.ROOT;
 
   /**
    * Creates a new Snapshot instance. This constructor is used internally by {@link
