@@ -69,9 +69,10 @@ class SnapshotUnitTest {
   void setVariables_addsAllEntries() throws Exception {
     var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, false);
 
-    assertThat(s.setVariables(Map.of("msg", "hello"))).isSameAs(s);
+    var result = s.setVariables(Map.of("msg", "hello"));
+    assertThat(result).isNotSameAs(s);
 
-    s.assertMatchesSnapshot();
+    result.assertMatchesSnapshot();
     assertThat(Files.readString(tempDir.resolve("TC/tm.html"))).contains("hello");
   }
 
@@ -84,9 +85,9 @@ class SnapshotUnitTest {
   // --- setLocale ---
 
   @Test
-  void setLocale_returnsThis() {
+  void setLocale_returnsNewInstance() {
     var s = inlineSnapshot("<p>x</p>", false, false);
-    assertThat(s.setLocale(Locale.ENGLISH)).isSameAs(s);
+    assertThat(s.setLocale(Locale.ENGLISH)).isNotSameAs(s);
   }
 
   @Test
@@ -100,12 +101,11 @@ class SnapshotUnitTest {
   @Test
   void clearVariables_removesAllVariables() throws Exception {
     var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, false);
-    s.setVariable("msg", "before");
 
-    assertThat(s.clearVariables()).isSameAs(s);
+    var cleared = s.setVariable("msg", "before").clearVariables().setVariable("msg", "after");
+    assertThat(cleared).isNotSameAs(s);
 
-    s.setVariable("msg", "after");
-    s.assertMatchesSnapshot();
+    cleared.assertMatchesSnapshot();
     assertThat(Files.readString(tempDir.resolve("TC/tm.html")))
         .contains("after")
         .doesNotContain("before");
@@ -116,9 +116,8 @@ class SnapshotUnitTest {
   @Test
   void assertMatchesSnapshot_prettyPrintsWhenEnabled() throws Exception {
     var s = inlineSnapshot("<div><p th:text=\"${msg}\">x</p></div>", true, false);
-    s.setVariable("msg", "pretty");
 
-    s.assertMatchesSnapshot();
+    s.setVariable("msg", "pretty").assertMatchesSnapshot();
 
     assertThat(Files.readString(tempDir.resolve("TC/tm.html")))
         .as("prettyPrint should add newlines and not wrap in html/body")
@@ -134,8 +133,7 @@ class SnapshotUnitTest {
     Path snapshotPath = writeExistingSnapshot("old content");
 
     var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, true);
-    s.setVariable("msg", "new");
-    s.assertMatchesSnapshot(); // should overwrite, not throw
+    s.setVariable("msg", "new").assertMatchesSnapshot();
 
     assertThat(Files.readString(snapshotPath)).contains("new").doesNotContain("old content");
   }
@@ -153,8 +151,7 @@ class SnapshotUnitTest {
             annotation("", "<p th:text=\"${msg}\">x</p>", true),
             false,
             false);
-    s.setVariable("msg", "new");
-    s.assertMatchesSnapshot();
+    s.setVariable("msg", "new").assertMatchesSnapshot();
 
     assertThat(Files.readString(snapshotPath)).contains("new");
   }
@@ -166,9 +163,9 @@ class SnapshotUnitTest {
     writeExistingSnapshot("<p>expected</p>");
 
     var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, false);
-    s.setVariable("msg", "different");
+    var withDifferent = s.setVariable("msg", "different");
 
-    assertThatThrownBy(() -> s.assertMatchesSnapshot())
+    assertThatThrownBy(() -> withDifferent.assertMatchesSnapshot())
         .isInstanceOf(SnapshotMismatchException.class);
   }
 
