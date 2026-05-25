@@ -70,7 +70,7 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
     }
 
     // Resolve configuration (cached at class level via annotation lookup)
-    ResolvedConfig config = ResolvedConfig.from(testClass.getAnnotation(SnapshotConfig.class));
+    ResolvedConfig config = ResolvedConfig.from(resolveSnapshotConfig(testClass));
 
     // Get or create class-level components
     ThymeleafRenderer renderer = getOrCreateRenderer(context, config);
@@ -137,6 +137,16 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
   /** Returns the class-level store for caching shared objects. */
   private ExtensionContext.Store getClassStore(ExtensionContext context) {
     return context.getParent().orElse(context).getStore(NAMESPACE);
+  }
+
+  static SnapshotConfig resolveSnapshotConfig(Class<?> testClass) {
+    Class<?> cls = testClass;
+    while (cls != null) {
+      SnapshotConfig cfg = cls.getAnnotation(SnapshotConfig.class);
+      if (cfg != null) return cfg;
+      cls = cls.getEnclosingClass();
+    }
+    return null;
   }
 
   static String resolveSnapshotMethodName(String methodName, String displayName, String uniqueId) {

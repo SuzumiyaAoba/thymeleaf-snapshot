@@ -89,6 +89,44 @@ class ThymeleafSnapshotExtensionTest {
     assertEquals("shouldRender[[1] locale=en_US_variant_]", methodName);
   }
 
+  @Test
+  void resolveSnapshotConfigReturnsNullWhenAbsent() {
+    class NoConfig {}
+    assertNull(ThymeleafSnapshotExtension.resolveSnapshotConfig(NoConfig.class));
+  }
+
+  @Test
+  void resolveSnapshotConfigFindsAnnotationOnDirectClass() {
+    @SnapshotConfig(snapshotDir = "custom")
+    class Annotated {}
+    SnapshotConfig cfg = ThymeleafSnapshotExtension.resolveSnapshotConfig(Annotated.class);
+    assertNotNull(cfg);
+    assertEquals("custom", cfg.snapshotDir());
+  }
+
+  @Test
+  void resolveSnapshotConfigWalksEnclosingClassChain() {
+    @SnapshotConfig(snapshotDir = "from-outer")
+    class Outer {
+      class Inner {}
+    }
+    SnapshotConfig cfg = ThymeleafSnapshotExtension.resolveSnapshotConfig(Outer.Inner.class);
+    assertNotNull(cfg);
+    assertEquals("from-outer", cfg.snapshotDir());
+  }
+
+  @Test
+  void resolveSnapshotConfigPrefersInnermostAnnotation() {
+    @SnapshotConfig(snapshotDir = "outer")
+    class Outer {
+      @SnapshotConfig(snapshotDir = "inner")
+      class Inner {}
+    }
+    SnapshotConfig cfg = ThymeleafSnapshotExtension.resolveSnapshotConfig(Outer.Inner.class);
+    assertNotNull(cfg);
+    assertEquals("inner", cfg.snapshotDir());
+  }
+
   @SnapshotTest(template = "simple")
   void shouldCreateSnapshotOnFirstRun(Snapshot snapshot) {
     snapshot.setVariable("title", "Hello World");
