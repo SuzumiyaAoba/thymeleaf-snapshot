@@ -139,6 +139,36 @@ class SnapshotManagerTest {
   }
 
   @Test
+  void matchesTreatsCrLfAndLfAsEqual() {
+    assertThat(manager.matches("line1\r\nline2", "line1\nline2")).isTrue();
+  }
+
+  @Test
+  void matchesTreatsStoredCrLfAsEqualToRenderedLf() {
+    assertThat(manager.matches("<p>a</p>\r\n<p>b</p>", "<p>a</p>\n<p>b</p>")).isTrue();
+  }
+
+  @Test
+  void writeSnapshotNormalizesCrlfToLf() throws IOException {
+    Path path = manager.resolveSnapshotPath("com.example.Test", "crlfWrite", null);
+
+    manager.writeSnapshot(path, "line1\r\nline2\r\nline3");
+
+    String stored = Files.readString(path, StandardCharsets.UTF_8);
+    assertThat(stored).doesNotContain("\r\n");
+    assertThat(manager.readSnapshot(path)).isEqualTo("line1\nline2\nline3");
+  }
+
+  @Test
+  void readSnapshotNormalizesCrlfToLf() throws IOException {
+    Path path = manager.resolveSnapshotPath("com.example.Test", "crlfRead", null);
+    Files.createDirectories(path.getParent());
+    Files.writeString(path, "line1\r\nline2\r\nline3", StandardCharsets.UTF_8);
+
+    assertThat(manager.readSnapshot(path)).isEqualTo("line1\nline2\nline3");
+  }
+
+  @Test
   void writeSnapshotStripsTrailingNewline() {
     Path path = manager.resolveSnapshotPath("com.example.Test", "trailingNewline", null);
 
