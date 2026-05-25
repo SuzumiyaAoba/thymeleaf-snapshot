@@ -24,6 +24,13 @@ import java.util.Objects;
  *     testMethodName.html
  *     testMethodName[snapshot-name].html
  * </pre>
+ *
+ * <h2>Trailing-newline policy</h2>
+ *
+ * <p>Snapshot files are always written <em>without</em> a trailing newline. When reading a snapshot
+ * file, any trailing {@code \r} or {@code \n} characters are stripped before comparison. This
+ * ensures that editors configured to append a final newline (VS Code, Vim {@code fixendofline},
+ * Prettier, etc.) do not cause spurious mismatches.
  */
 public final class SnapshotManager {
 
@@ -93,17 +100,17 @@ public final class SnapshotManager {
   }
 
   /**
-   * Reads the content of a stored snapshot file.
+   * Reads the content of a stored snapshot file, stripping any trailing newlines.
    *
    * @param snapshotPath the path to the snapshot file
-   * @return the snapshot content
+   * @return the snapshot content with trailing newlines removed
    * @throws NullPointerException if snapshotPath is null
    * @throws UncheckedIOException if the file cannot be read
    */
   public String readSnapshot(Path snapshotPath) {
     Objects.requireNonNull(snapshotPath, "snapshotPath must not be null");
     try {
-      return Files.readString(snapshotPath, StandardCharsets.UTF_8);
+      return stripTrailingNewlines(Files.readString(snapshotPath, StandardCharsets.UTF_8));
     } catch (IOException e) {
       throw new UncheckedIOException("Failed to read snapshot: " + snapshotPath, e);
     }
@@ -111,6 +118,9 @@ public final class SnapshotManager {
 
   /**
    * Writes content to a snapshot file, creating parent directories if necessary.
+   *
+   * <p>Trailing newlines are stripped from {@code content} before writing to ensure files are
+   * stored in a canonical form regardless of editor settings.
    *
    * @param snapshotPath the path to the snapshot file
    * @param content the content to write
@@ -122,21 +132,29 @@ public final class SnapshotManager {
     Objects.requireNonNull(content, "content must not be null");
     try {
       Files.createDirectories(snapshotPath.getParent());
-      Files.writeString(snapshotPath, content, StandardCharsets.UTF_8);
+      Files.writeString(snapshotPath, stripTrailingNewlines(content), StandardCharsets.UTF_8);
     } catch (IOException e) {
       throw new UncheckedIOException("Failed to write snapshot: " + snapshotPath, e);
     }
   }
 
   /**
-   * Compares two content strings for equality.
+   * Compares two content strings for equality after normalizing trailing newlines on both sides.
    *
    * @param expected the expected content
    * @param actual the actual content
-   * @return {@code true} if the contents are equal
+   * @return {@code true} if the contents are equal after normalization
    */
   public boolean matches(String expected, String actual) {
-    return Objects.equals(expected, actual);
+    return Objects.equals(stripTrailingNewlines(expected), stripTrailingNewlines(actual));
+  }
+
+  private static String stripTrailingNewlines(String s) {
+    int end = s.length();
+    while (end > 0 && (s.charAt(end - 1) == '\n' || s.charAt(end - 1) == '\r')) {
+      end--;
+    }
+    return end == s.length() ? s : s.substring(0, end);
   }
 
   /**
