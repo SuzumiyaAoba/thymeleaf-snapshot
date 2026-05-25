@@ -1,6 +1,7 @@
 package com.github.suzumiyaaoba.thymeleaf.snapshot;
 
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -13,27 +14,43 @@ import java.util.Objects;
  * It provides a fluent interface for setting template variables and asserting that the rendered
  * output matches a stored snapshot.
  *
+ * <h2>Immutability</h2>
+ *
+ * <p>{@code Snapshot} is <strong>immutable</strong>. Methods such as {@link #setVariable}, {@link
+ * #setVariables}, {@link #setLocale}, and {@link #clearVariables} do <em>not</em> modify the
+ * receiver; they each return a <em>new</em> {@code Snapshot} instance with the requested change
+ * applied. The original instance is unchanged.
+ *
+ * <p>This means that {@link #assertMatchesSnapshot()} always operates on a fixed, fully-determined
+ * set of variables and locale — there are no hidden mutations that could affect a subsequent call.
+ * Always capture or immediately consume the return value of the fluent methods:
+ *
+ * <pre>{@code
+ * // Correct — chain fluently
+ * snapshot.setVariable("title", "Hello").assertMatchesSnapshot();
+ *
+ * // Incorrect — setVariable result is discarded; assertMatchesSnapshot sees no variables
+ * snapshot.setVariable("title", "Hello");
+ * snapshot.assertMatchesSnapshot();          // BUG: title is not set on this instance
+ * }</pre>
+ *
  * <h2>Concurrency contract</h2>
  *
- * <p><strong>This class is not thread-safe.</strong> Each instance is created per test invocation
- * by {@link ThymeleafSnapshotExtension} and is intended to be used exclusively by the single thread
- * that runs the test method. Do not share a {@code Snapshot} instance across threads or cache it
- * beyond the scope of a single test invocation.
- *
- * <p>Users who enable JUnit 5 parallel test execution ({@code
- * junit.jupiter.execution.parallel.enabled=true}) should be aware that each test method receives
- * its own {@code Snapshot} instance, so parallel <em>methods</em> are safe. However, sharing the
- * same instance between threads within a single test (e.g. via a manually created thread pool) will
- * produce data races on the variables map and locale without any compile-time or runtime warning.
+ * <p>Because every {@code Snapshot} instance is fully immutable after construction, <em>read</em>
+ * operations ({@link #assertMatchesSnapshot()}) are safe to call from multiple threads
+ * concurrently. However, each test method receives its own injected instance and is expected to use
+ * it from a single thread; sharing an instance across threads for coordinated rendering is an
+ * unusual pattern and offers no advantage.
  *
  * <h2>Usage Example</h2>
  *
  * <pre>{@code
  * @SnapshotTest(template = "pages/home")
  * void shouldRenderHomePage(Snapshot snapshot) {
- *     snapshot.setVariable("title", "Hello World");
- *     snapshot.setVariable("items", List.of("A", "B"));
- *     snapshot.assertMatchesSnapshot();
+ *     snapshot
+ *         .setVariable("title", "Hello World")
+ *         .setVariable("items", List.of("A", "B"))
+ *         .assertMatchesSnapshot();
  * }
  * }</pre>
  *
@@ -42,12 +59,13 @@ import java.util.Objects;
  * <pre>{@code
  * @SnapshotTest(template = "pages/dashboard")
  * void shouldRenderMultipleStates(Snapshot snapshot) {
- *     snapshot.setVariable("loggedIn", true);
- *     snapshot.assertMatchesSnapshot("logged-in");
+ *     snapshot
+ *         .setVariable("loggedIn", true)
+ *         .assertMatchesSnapshot("logged-in");
  *
- *     snapshot.clearVariables();
- *     snapshot.setVariable("loggedIn", false);
- *     snapshot.assertMatchesSnapshot("logged-out");
+ *     snapshot
+ *         .setVariable("loggedIn", false)
+ *         .assertMatchesSnapshot("logged-out");
  * }
  * }</pre>
  */
@@ -61,8 +79,8 @@ public final class Snapshot {
   private final boolean prettyPrint;
   private final boolean shouldUpdate;
 
-  private final Map<String, Object> variables = new LinkedHashMap<>();
-  private volatile Locale locale = Locale.ROOT;
+  private final Map<String, Object> variables;
+  private final Locale locale;
 
   /**
    * Creates a new Snapshot instance. This constructor is used internally by {@link
@@ -92,63 +110,86 @@ public final class Snapshot {
     this.annotation = Objects.requireNonNull(annotation, "annotation must not be null");
     this.prettyPrint = prettyPrint;
     this.shouldUpdate = globalUpdate || annotation.update();
+    this.variables = Collections.emptyMap();
+    this.locale = Locale.ROOT;
 
     validateAnnotation();
   }
 
+  private Snapshot(Snapshot base, Map<String, Object> variables, Locale locale) {
+    this.renderer = base.renderer;
+    this.snapshotManager = base.snapshotManager;
+    this.testClassName = base.testClassName;
+    this.testMethodName = base.testMethodName;
+    this.annotation = base.annotation;
+    this.prettyPrint = base.prettyPrint;
+    this.shouldUpdate = base.shouldUpdate;
+    this.variables = Collections.unmodifiableMap(variables);
+    this.locale = locale;
+  }
+
   /**
-   * Sets a template variable.
+   * Returns a new {@code Snapshot} with the given variable added.
+   *
+   * <p>The receiver is not modified.
    *
    * @param name the variable name
    * @param value the variable value (may be {@code null})
-   * @return this snapshot instance for chaining
+   * @return a new {@code Snapshot} instance containing the added variable
    * @throws NullPointerException if name is null
    */
   public Snapshot setVariable(String name, Object value) {
     Objects.requireNonNull(name, "variable name must not be null");
-    variables.put(name, value);
-    return this;
+    Map<String, Object> newVars = new LinkedHashMap<>(variables);
+    newVars.put(name, value);
+    return new Snapshot(this, newVars, locale);
   }
 
   /**
-   * Sets multiple template variables at once.
+   * Returns a new {@code Snapshot} with all entries from the given map added.
+   *
+   * <p>The receiver is not modified.
    *
    * @param variables a map of variable names to values
-   * @return this snapshot instance for chaining
+   * @return a new {@code Snapshot} instance containing the added variables
    * @throws NullPointerException if variables is null
    */
   public Snapshot setVariables(Map<String, Object> variables) {
     Objects.requireNonNull(variables, "variables must not be null");
-    this.variables.putAll(variables);
-    return this;
+    Map<String, Object> newVars = new LinkedHashMap<>(this.variables);
+    newVars.putAll(variables);
+    return new Snapshot(this, newVars, locale);
   }
 
   /**
-   * Sets the locale for template rendering.
+   * Returns a new {@code Snapshot} with the given locale.
    *
    * <p>Defaults to {@link Locale#ROOT} for environment-independent snapshots. Call this method when
    * locale-sensitive formatting (e.g. date, number) is intentionally under test.
    *
+   * <p>The receiver is not modified.
+   *
    * @param locale the locale
-   * @return this snapshot instance for chaining
+   * @return a new {@code Snapshot} instance with the updated locale
    * @throws NullPointerException if locale is null
    */
   public Snapshot setLocale(Locale locale) {
-    this.locale = Objects.requireNonNull(locale, "locale must not be null");
-    return this;
+    Objects.requireNonNull(locale, "locale must not be null");
+    return new Snapshot(this, new LinkedHashMap<>(variables), locale);
   }
 
   /**
-   * Clears all previously set variables.
+   * Returns a new {@code Snapshot} with all variables cleared.
    *
    * <p>Useful when asserting multiple snapshots within a single test where each snapshot should
    * start with a clean variable set.
    *
-   * @return this snapshot instance for chaining
+   * <p>The receiver is not modified.
+   *
+   * @return a new {@code Snapshot} instance with no variables
    */
   public Snapshot clearVariables() {
-    variables.clear();
-    return this;
+    return new Snapshot(this, new LinkedHashMap<>(), locale);
   }
 
   /**
