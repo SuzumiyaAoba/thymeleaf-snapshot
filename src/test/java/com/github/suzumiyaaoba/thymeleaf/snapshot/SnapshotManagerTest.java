@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.junit.jupiter.api.AfterEach;
@@ -120,6 +121,39 @@ class SnapshotManagerTest {
   @Test
   void matchesReturnsFalseForDifferentContent() {
     assertThat(manager.matches("hello", "world")).isFalse();
+  }
+
+  @Test
+  void matchesIgnoresTrailingNewlineOnExpected() {
+    assertThat(manager.matches("hello\n", "hello")).isTrue();
+  }
+
+  @Test
+  void matchesIgnoresTrailingNewlineOnActual() {
+    assertThat(manager.matches("hello", "hello\n")).isTrue();
+  }
+
+  @Test
+  void matchesIgnoresTrailingCrLfOnBothSides() {
+    assertThat(manager.matches("hello\r\n", "hello\r\n")).isTrue();
+  }
+
+  @Test
+  void writeSnapshotStripsTrailingNewline() {
+    Path path = manager.resolveSnapshotPath("com.example.Test", "trailingNewline", null);
+
+    manager.writeSnapshot(path, "<html/>\n");
+
+    assertThat(manager.readSnapshot(path)).isEqualTo("<html/>");
+  }
+
+  @Test
+  void readSnapshotStripsTrailingNewlineAddedByEditor() throws IOException {
+    Path path = manager.resolveSnapshotPath("com.example.Test", "editorNewline", null);
+    Files.createDirectories(path.getParent());
+    Files.writeString(path, "<html/>\n", StandardCharsets.UTF_8);
+
+    assertThat(manager.readSnapshot(path)).isEqualTo("<html/>");
   }
 
   @Test
