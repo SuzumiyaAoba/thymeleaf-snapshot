@@ -131,6 +131,7 @@ class MyTest { ... }
 |---|---|
 | `snapshot.update` | Set to `true` to update all snapshot files |
 | `snapshot.baseDir` | Override the snapshot root directory (defaults to `src/test/resources/`) |
+| `snapshot.ci` | Set to `true` to fail (instead of auto-creating) when a snapshot file is missing. Add to your CI build command to ensure all snapshots are committed: `./gradlew test -Dsnapshot.ci=true` |
 
 Example:
 ```bash
