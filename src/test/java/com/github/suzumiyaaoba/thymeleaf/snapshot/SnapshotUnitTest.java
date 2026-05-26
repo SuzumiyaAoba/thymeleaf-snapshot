@@ -53,7 +53,19 @@ class SnapshotUnitTest {
 
   private Snapshot inlineSnapshot(String tmpl, boolean prettyPrint, boolean globalUpdate) {
     return new Snapshot(
-        renderer, manager, "TC", "tm", annotation("", tmpl, false), prettyPrint, globalUpdate);
+        renderer,
+        manager,
+        "TC",
+        "tm",
+        annotation("", tmpl, false),
+        prettyPrint,
+        globalUpdate,
+        false);
+  }
+
+  private Snapshot inlineSnapshotCi(String tmpl) {
+    return new Snapshot(
+        renderer, manager, "TC", "tm", annotation("", tmpl, false), false, false, true);
   }
 
   private Path writeExistingSnapshot(String content) throws Exception {
@@ -150,6 +162,7 @@ class SnapshotUnitTest {
             "tm",
             annotation("", "<p th:text=\"${msg}\">x</p>", true),
             false,
+            false,
             false);
     s.setVariable("msg", "new").assertMatchesSnapshot();
 
@@ -182,6 +195,7 @@ class SnapshotUnitTest {
                     "tm",
                     annotation("tmpl", "inline", false),
                     false,
+                    false,
                     false))
         .isInstanceOf(IllegalStateException.class);
   }
@@ -191,7 +205,7 @@ class SnapshotUnitTest {
     assertThatThrownBy(
             () ->
                 new Snapshot(
-                    renderer, manager, "TC", "tm", annotation("", "", false), false, false))
+                    renderer, manager, "TC", "tm", annotation("", "", false), false, false, false))
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -200,7 +214,14 @@ class SnapshotUnitTest {
     assertThatThrownBy(
             () ->
                 new Snapshot(
-                    renderer, manager, "TC", "tm", annotation("   ", "", false), false, false))
+                    renderer,
+                    manager,
+                    "TC",
+                    "tm",
+                    annotation("   ", "", false),
+                    false,
+                    false,
+                    false))
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -209,7 +230,51 @@ class SnapshotUnitTest {
     assertThatThrownBy(
             () ->
                 new Snapshot(
-                    renderer, manager, "TC", "tm", annotation("", "\n\t", false), false, false))
+                    renderer,
+                    manager,
+                    "TC",
+                    "tm",
+                    annotation("", "\n\t", false),
+                    false,
+                    false,
+                    false))
         .isInstanceOf(IllegalStateException.class);
+  }
+
+  // --- assertMatchesSnapshot: CI mode ---
+
+  @Test
+  void assertMatchesSnapshot_throwsMissingWhenCiModeAndNoSnapshot() {
+    var s = inlineSnapshotCi("<p>hello</p>");
+
+    assertThatThrownBy(s::assertMatchesSnapshot)
+        .isInstanceOf(SnapshotMissingException.class)
+        .hasMessageContaining("TC/tm.html")
+        .hasMessageContaining("CI mode");
+  }
+
+  @Test
+  void assertMatchesSnapshot_passesWhenCiModeAndSnapshotExists() throws Exception {
+    writeExistingSnapshot("<p>hello</p>");
+
+    inlineSnapshotCi("<p>hello</p>").assertMatchesSnapshot();
+  }
+
+  @Test
+  void assertMatchesSnapshot_createsSnapshotWhenCiModeAndUpdateModeActive() throws Exception {
+    var s =
+        new Snapshot(
+            renderer,
+            manager,
+            "TC",
+            "tm",
+            annotation("", "<p>hello</p>", false),
+            false,
+            true,
+            true);
+
+    s.assertMatchesSnapshot();
+
+    assertThat(Files.exists(tempDir.resolve("TC/tm.html"))).isTrue();
   }
 }

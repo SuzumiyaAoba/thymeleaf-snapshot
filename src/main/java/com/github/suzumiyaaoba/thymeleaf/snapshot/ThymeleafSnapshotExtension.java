@@ -60,6 +60,19 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
    */
   public static final String BASE_DIR_PROPERTY = "snapshot.baseDir";
 
+  /**
+   * System property name to enable CI mode. Set {@code -Dsnapshot.ci=true} to make the test fail
+   * (instead of auto-creating the file) when a snapshot file does not exist.
+   *
+   * <p>This prevents a test from silently passing on CI when its snapshot file was not committed.
+   * Add this flag to your CI build command to enforce that all snapshots are committed:
+   *
+   * <pre>{@code
+   * ./gradlew test -Dsnapshot.ci=true
+   * }</pre>
+   */
+  public static final String CI_PROPERTY = "snapshot.ci";
+
   @Override
   public void beforeEach(ExtensionContext context) {
     Method testMethod = context.getRequiredTestMethod();
@@ -80,6 +93,9 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
     // Check for global update mode
     boolean globalUpdate = Boolean.getBoolean(UPDATE_PROPERTY);
 
+    // Check for CI mode via explicit system property
+    boolean ciMode = Boolean.getBoolean(CI_PROPERTY);
+
     // Create per-test Snapshot instance
     Snapshot snapshot =
         new Snapshot(
@@ -90,7 +106,8 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
                 testMethod.getName(), context.getDisplayName(), context.getUniqueId()),
             snapshotTest,
             config.prettyPrint(),
-            globalUpdate);
+            globalUpdate,
+            ciMode);
 
     // Store in method-level extension context
     context.getStore(NAMESPACE).put(SNAPSHOT_KEY, snapshot);
