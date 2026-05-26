@@ -39,15 +39,6 @@ record ResolvedConfig(
   }
 
   /**
-   * Returns the file extension for the snapshot file based on the template mode.
-   *
-   * @return file extension including the leading dot
-   */
-  String snapshotFileExtension() {
-    return extensionForMode(templateMode);
-  }
-
-  /**
    * Maps a {@link TemplateMode} to its corresponding snapshot file extension.
    *
    * @param mode the template mode

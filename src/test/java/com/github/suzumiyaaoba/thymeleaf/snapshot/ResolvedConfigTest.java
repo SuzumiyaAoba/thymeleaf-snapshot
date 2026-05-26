@@ -89,11 +89,4 @@ class ResolvedConfigTest {
   void extensionForMode_raw() {
     assertThat(ResolvedConfig.extensionForMode(TemplateMode.RAW)).isEqualTo(".txt");
   }
-
-  @Test
-  void snapshotFileExtension_delegatesToExtensionForMode() {
-    ResolvedConfig config =
-        new ResolvedConfig("t/", ".xml", "__snapshots__", false, "UTF-8", TemplateMode.XML);
-    assertThat(config.snapshotFileExtension()).isEqualTo(".xml");
-  }
 }

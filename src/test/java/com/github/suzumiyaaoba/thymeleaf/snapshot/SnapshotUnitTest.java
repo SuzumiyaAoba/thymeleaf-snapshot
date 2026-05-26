@@ -137,7 +137,8 @@ class SnapshotUnitTest {
 
   @Test
   void assertMatchesSnapshot_prettyPrintSkippedForNonHtmlMode() throws Exception {
-    ThymeleafRenderer textRenderer = new ThymeleafRenderer("templates/", ".txt", "UTF-8");
+    ThymeleafRenderer textRenderer =
+        new ThymeleafRenderer("templates/", ".txt", "UTF-8", TemplateMode.TEXT);
     var s =
         new Snapshot(
             textRenderer,

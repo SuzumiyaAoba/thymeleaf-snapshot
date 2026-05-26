@@ -181,7 +181,7 @@ public final class SnapshotManager {
   }
 
   /** Full normalization: CRLF → LF, then strip trailing newlines. Used only for comparison. */
-  private static String normalize(String s) {
+  static String normalize(String s) {
     return stripTrailingNewlines(normalizeCrlf(s));
   }
 

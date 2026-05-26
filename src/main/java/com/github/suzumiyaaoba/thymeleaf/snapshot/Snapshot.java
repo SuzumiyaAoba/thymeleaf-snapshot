@@ -184,7 +184,8 @@ public final class Snapshot {
 
     String expected = snapshotManager.readSnapshot(snapshotPath);
     if (!snapshotManager.matches(expected, rendered)) {
-      throw new SnapshotMismatchException(snapshotPath, expected, rendered);
+      throw new SnapshotMismatchException(
+          snapshotPath, expected, SnapshotManager.normalize(rendered));
     }
   }
 
