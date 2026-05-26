@@ -8,6 +8,8 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -222,5 +224,48 @@ class SnapshotManagerTest {
     SnapshotManager propertyManager = new SnapshotManager("__snapshots__");
 
     assertThat(propertyManager.getSnapshotBaseDir()).isEqualTo(tempDir.resolve("__snapshots__"));
+  }
+
+  // --- findOrphanedSnapshots ---
+
+  @Test
+  void findOrphanedSnapshots_returnsFilesNotInAccessedSet() throws Exception {
+    Path a = manager.resolveSnapshotPath("MyTest", "methodA", null);
+    Path b = manager.resolveSnapshotPath("MyTest", "methodB", null);
+    manager.writeSnapshot(a, "a");
+    manager.writeSnapshot(b, "b");
+
+    List<Path> orphans = manager.findOrphanedSnapshots("MyTest", Set.of(a));
+
+    assertThat(orphans).containsExactly(b);
+  }
+
+  @Test
+  void findOrphanedSnapshots_returnsEmptyWhenClassDirectoryAbsent() {
+    List<Path> orphans = manager.findOrphanedSnapshots("NonExistentTest", Set.of());
+
+    assertThat(orphans).isEmpty();
+  }
+
+  @Test
+  void findOrphanedSnapshots_returnsEmptyWhenAllSnapshotsAccessed() throws Exception {
+    Path a = manager.resolveSnapshotPath("MyTest", "methodA", null);
+    manager.writeSnapshot(a, "a");
+
+    List<Path> orphans = manager.findOrphanedSnapshots("MyTest", Set.of(a));
+
+    assertThat(orphans).isEmpty();
+  }
+
+  @Test
+  void findOrphanedSnapshots_returnsAllFilesWhenNoneAccessed() throws Exception {
+    Path a = manager.resolveSnapshotPath("MyTest", "methodA", null);
+    Path b = manager.resolveSnapshotPath("MyTest", "methodB", null);
+    manager.writeSnapshot(a, "a");
+    manager.writeSnapshot(b, "b");
+
+    List<Path> orphans = manager.findOrphanedSnapshots("MyTest", Set.of());
+
+    assertThat(orphans).containsExactlyInAnyOrder(a, b);
   }
 }

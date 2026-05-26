@@ -6,8 +6,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.lang.annotation.Annotation;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -60,12 +62,21 @@ class SnapshotUnitTest {
         annotation("", tmpl, false),
         prettyPrint,
         globalUpdate,
-        false);
+        false,
+        new HashSet<>());
   }
 
   private Snapshot inlineSnapshotCi(String tmpl) {
     return new Snapshot(
-        renderer, manager, "TC", "tm", annotation("", tmpl, false), false, false, true);
+        renderer,
+        manager,
+        "TC",
+        "tm",
+        annotation("", tmpl, false),
+        false,
+        false,
+        true,
+        new HashSet<>());
   }
 
   private Path writeExistingSnapshot(String content) throws Exception {
@@ -163,7 +174,8 @@ class SnapshotUnitTest {
             annotation("", "<p th:text=\"${msg}\">x</p>", true),
             false,
             false,
-            false);
+            false,
+            new HashSet<>());
     s.setVariable("msg", "new").assertMatchesSnapshot();
 
     assertThat(Files.readString(snapshotPath)).contains("new");
@@ -182,6 +194,72 @@ class SnapshotUnitTest {
         .isInstanceOf(SnapshotMismatchException.class);
   }
 
+  // --- assertMatchesSnapshot: accessedPaths tracking ---
+
+  @Test
+  void assertMatchesSnapshot_recordsResolvedPathInAccessedSet() throws Exception {
+    Set<Path> accessed = new HashSet<>();
+    var s =
+        new Snapshot(
+            renderer,
+            manager,
+            "TC",
+            "tm",
+            annotation("", "<p>hi</p>", false),
+            false,
+            false,
+            false,
+            accessed);
+
+    s.assertMatchesSnapshot();
+
+    assertThat(accessed).containsExactly(tempDir.resolve("TC/tm.html"));
+  }
+
+  @Test
+  void assertMatchesSnapshot_recordsNamedPathInAccessedSet() throws Exception {
+    Set<Path> accessed = new HashSet<>();
+    var s =
+        new Snapshot(
+            renderer,
+            manager,
+            "TC",
+            "tm",
+            annotation("", "<p>hi</p>", false),
+            false,
+            false,
+            false,
+            accessed);
+
+    s.assertMatchesSnapshot("v1");
+    s.assertMatchesSnapshot("v2");
+
+    assertThat(accessed)
+        .containsExactlyInAnyOrder(
+            tempDir.resolve("TC/tm[v1].html"), tempDir.resolve("TC/tm[v2].html"));
+  }
+
+  @Test
+  void assertMatchesSnapshot_fluentCopiesShareAccessedSet() throws Exception {
+    Set<Path> accessed = new HashSet<>();
+    var base =
+        new Snapshot(
+            renderer,
+            manager,
+            "TC",
+            "tm",
+            annotation("", "<p th:text=\"${x}\">x</p>", false),
+            false,
+            false,
+            false,
+            accessed);
+
+    base.setVariable("x", "a").assertMatchesSnapshot("a");
+    base.setVariable("x", "b").assertMatchesSnapshot("b");
+
+    assertThat(accessed).hasSize(2);
+  }
+
   // --- validateAnnotation ---
 
   @Test
@@ -196,7 +274,8 @@ class SnapshotUnitTest {
                     annotation("tmpl", "inline", false),
                     false,
                     false,
-                    false))
+                    false,
+                    new HashSet<>()))
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -205,7 +284,15 @@ class SnapshotUnitTest {
     assertThatThrownBy(
             () ->
                 new Snapshot(
-                    renderer, manager, "TC", "tm", annotation("", "", false), false, false, false))
+                    renderer,
+                    manager,
+                    "TC",
+                    "tm",
+                    annotation("", "", false),
+                    false,
+                    false,
+                    false,
+                    new HashSet<>()))
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -221,7 +308,8 @@ class SnapshotUnitTest {
                     annotation("   ", "", false),
                     false,
                     false,
-                    false))
+                    false,
+                    new HashSet<>()))
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -237,7 +325,8 @@ class SnapshotUnitTest {
                     annotation("", "\n\t", false),
                     false,
                     false,
-                    false))
+                    false,
+                    new HashSet<>()))
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -271,7 +360,8 @@ class SnapshotUnitTest {
             annotation("", "<p>hello</p>", false),
             false,
             true,
-            true);
+            true,
+            new HashSet<>());
 
     s.assertMatchesSnapshot();
 
