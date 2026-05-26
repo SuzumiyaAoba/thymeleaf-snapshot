@@ -169,21 +169,52 @@ class SnapshotManagerTest {
   }
 
   @Test
-  void writeSnapshotStripsTrailingNewline() {
+  void writeSnapshotPreservesTrailingNewline() {
     Path path = manager.resolveSnapshotPath("com.example.Test", "trailingNewline", null);
 
     manager.writeSnapshot(path, "<html/>\n");
 
-    assertThat(manager.readSnapshot(path)).isEqualTo("<html/>");
+    assertThat(manager.readSnapshot(path)).isEqualTo("<html/>\n");
   }
 
   @Test
-  void readSnapshotStripsTrailingNewlineAddedByEditor() throws IOException {
+  void readSnapshotPreservesTrailingNewlineAddedByEditor() throws IOException {
     Path path = manager.resolveSnapshotPath("com.example.Test", "editorNewline", null);
     Files.createDirectories(path.getParent());
     Files.writeString(path, "<html/>\n", StandardCharsets.UTF_8);
 
-    assertThat(manager.readSnapshot(path)).isEqualTo("<html/>");
+    assertThat(manager.readSnapshot(path)).isEqualTo("<html/>\n");
+  }
+
+  @Test
+  void matchesIgnoresEditorAddedTrailingNewlineInStoredContent() throws IOException {
+    Path path = manager.resolveSnapshotPath("com.example.Test", "editorMatch", null);
+    Files.createDirectories(path.getParent());
+    Files.writeString(path, "<html/>\n", StandardCharsets.UTF_8);
+
+    assertThat(manager.matches(manager.readSnapshot(path), "<html/>")).isTrue();
+  }
+
+  @Test
+  void resolveSnapshotPathRejectsExtensionWithPathSeparator() {
+    assertThatThrownBy(() -> manager.resolveSnapshotPath("TC", "tm", null, "/../evil.txt"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("fileExtension");
+  }
+
+  @Test
+  void resolveSnapshotPathRejectsExtensionWithoutLeadingDot() {
+    assertThatThrownBy(() -> manager.resolveSnapshotPath("TC", "tm", null, "html"))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void resolveSnapshotPathAcceptsStandardExtensions() {
+    for (String ext : new String[] {".html", ".xml", ".txt", ".js", ".css"}) {
+      assertThat(manager.resolveSnapshotPath("TC", "m", null, ext).toString())
+          .as("should accept extension %s", ext)
+          .endsWith("m" + ext);
+    }
   }
 
   @Test
