@@ -29,8 +29,9 @@ import org.junit.jupiter.api.extension.ParameterResolver;
  *
  *     @SnapshotTest(template = "pages/home")
  *     void shouldRenderHomePage(Snapshot snapshot) {
- *         snapshot.setVariable("title", "Hello");
- *         snapshot.assertMatchesSnapshot();
+ *         snapshot
+ *             .setVariable("title", "Hello")
+ *             .assertMatchesSnapshot();
  *     }
  * }
  * }</pre>
