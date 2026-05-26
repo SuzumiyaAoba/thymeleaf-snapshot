@@ -38,8 +38,9 @@ class HomePageTest {
 
     @SnapshotTest(template = "pages/home")
     void shouldRenderHomePage(Snapshot snapshot) {
-        snapshot.setVariable("title", "Hello World");
-        snapshot.assertMatchesSnapshot();
+        snapshot
+            .setVariable("title", "Hello World")
+            .assertMatchesSnapshot();
     }
 }
 ```
@@ -58,8 +59,7 @@ void classpathTemplate(Snapshot snapshot) { ... }
 // Inline template string
 @SnapshotTest(inlineTemplate = "<p th:text=\"${msg}\">placeholder</p>")
 void inlineTemplate(Snapshot snapshot) {
-    snapshot.setVariable("msg", "Hello!");
-    snapshot.assertMatchesSnapshot();
+    snapshot.setVariable("msg", "Hello!").assertMatchesSnapshot();
 }
 ```
 
@@ -68,12 +68,13 @@ void inlineTemplate(Snapshot snapshot) {
 ```java
 @SnapshotTest(template = "pages/dashboard")
 void shouldRenderMultipleStates(Snapshot snapshot) {
-    snapshot.setVariable("loggedIn", true);
-    snapshot.assertMatchesSnapshot("logged-in");
+    snapshot
+        .setVariable("loggedIn", true)
+        .assertMatchesSnapshot("logged-in");
 
-    snapshot.clearVariables();
-    snapshot.setVariable("loggedIn", false);
-    snapshot.assertMatchesSnapshot("logged-out");
+    snapshot
+        .setVariable("loggedIn", false)
+        .assertMatchesSnapshot("logged-out");
 }
 ```
 

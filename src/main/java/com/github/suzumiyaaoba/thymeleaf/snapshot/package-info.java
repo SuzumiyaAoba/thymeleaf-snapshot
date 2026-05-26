@@ -10,8 +10,9 @@
  *
  *     @SnapshotTest(template = "pages/home")
  *     void shouldRenderHomePage(Snapshot snapshot) {
- *         snapshot.setVariable("title", "Hello World");
- *         snapshot.assertMatchesSnapshot();
+ *         snapshot
+ *             .setVariable("title", "Hello World")
+ *             .assertMatchesSnapshot();
  *     }
  * }
  * }</pre>
