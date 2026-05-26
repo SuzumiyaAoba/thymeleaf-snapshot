@@ -8,7 +8,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Manages snapshot file storage, retrieval, and comparison.
@@ -152,6 +156,46 @@ public final class SnapshotManager {
     return Objects.equals(normalize(expected), normalize(actual));
   }
 
+  /**
+   * Returns snapshot files under the given test class directory that were not accessed during the
+   * current test run.
+   *
+   * <p>A file is considered orphaned when it exists on disk but its path was never recorded by
+   * {@link #resolveSnapshotPath} during this run — typically because the test method was renamed or
+   * deleted.
+   *
+   * @param testClassName the fully qualified test class name
+   * @param accessedPaths the set of snapshot paths that were accessed in this run
+   * @return a sorted list of orphaned snapshot file paths; empty if the class directory does not
+   *     exist or all files were accessed
+   */
+  List<Path> findOrphanedSnapshots(String testClassName, Set<Path> accessedPaths) {
+    Path classDir = snapshotBaseDir.resolve(testClassName);
+    if (!Files.exists(classDir)) {
+      return Collections.emptyList();
+    }
+    List<Path> orphans = new ArrayList<>();
+    try (var stream = Files.walk(classDir)) {
+      stream
+          .filter(Files::isRegularFile)
+          .filter(p -> !accessedPaths.contains(p))
+          .forEach(orphans::add);
+    } catch (IOException e) {
+      return Collections.emptyList();
+    }
+    Collections.sort(orphans);
+    return Collections.unmodifiableList(orphans);
+  }
+
+  /**
+   * Returns the base directory for snapshot storage.
+   *
+   * @return the snapshot base directory path
+   */
+  public Path getSnapshotBaseDir() {
+    return snapshotBaseDir;
+  }
+
   private static String normalize(String s) {
     return stripTrailingNewlines(s.replace("\r\n", "\n"));
   }
@@ -162,15 +206,6 @@ public final class SnapshotManager {
       end--;
     }
     return end == s.length() ? s : s.substring(0, end);
-  }
-
-  /**
-   * Returns the base directory for snapshot storage.
-   *
-   * @return the snapshot base directory path
-   */
-  public Path getSnapshotBaseDir() {
-    return snapshotBaseDir;
   }
 
   private static void validateSnapshotName(String snapshotName) {
