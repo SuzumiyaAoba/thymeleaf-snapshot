@@ -260,6 +260,30 @@ class SnapshotUnitTest {
     assertThat(accessed).hasSize(2);
   }
 
+  @Test
+  void assertMatchesSnapshot_exceptionCarriesNormalizedActual() throws Exception {
+    // Store a snapshot that differs from what the template renders.
+    // Write with an explicit trailing newline to simulate an editor-added newline
+    // so that reading it back normalizes to no trailing newline.
+    writeExistingSnapshot("<p>old</p>\n");
+
+    var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, false);
+
+    // Capture the thrown exception and verify both sides are normalized
+    SnapshotMismatchException ex =
+        (SnapshotMismatchException)
+            assertThatThrownBy(() -> s.setVariable("msg", "new").assertMatchesSnapshot())
+                .isInstanceOf(SnapshotMismatchException.class)
+                .actual();
+
+    assertThat(ex.getExpected()).doesNotEndWith("\n").doesNotEndWith("\r\n");
+    assertThat(ex.getActual()).doesNotEndWith("\n").doesNotEndWith("\r\n");
+
+    // The diff must not contain a spurious empty-line entry caused by trailing newline
+    String diff = SnapshotMismatchException.generateUnifiedDiff(ex.getExpected(), ex.getActual());
+    assertThat(diff).doesNotContain("\n+\n").doesNotContain("\n-\n");
+  }
+
   // --- validateAnnotation ---
 
   @Test
