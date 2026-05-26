@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import org.thymeleaf.templatemode.TemplateMode;
 
 /**
  * The main user-facing API for Thymeleaf snapshot testing.
@@ -47,6 +48,7 @@ public final class Snapshot {
   private final SnapshotTest annotation;
   private final boolean prettyPrint;
   private final boolean shouldUpdate;
+  private final TemplateMode templateMode;
 
   private final Map<String, Object> variables = new LinkedHashMap<>();
   private Locale locale = Locale.ROOT;
@@ -62,6 +64,7 @@ public final class Snapshot {
    * @param annotation the SnapshotTest annotation
    * @param prettyPrint whether to pretty-print HTML
    * @param globalUpdate whether global snapshot update is enabled
+   * @param templateMode the Thymeleaf template mode
    */
   Snapshot(
       ThymeleafRenderer renderer,
@@ -70,7 +73,8 @@ public final class Snapshot {
       String testMethodName,
       SnapshotTest annotation,
       boolean prettyPrint,
-      boolean globalUpdate) {
+      boolean globalUpdate,
+      TemplateMode templateMode) {
     this.renderer = Objects.requireNonNull(renderer, "renderer must not be null");
     this.snapshotManager =
         Objects.requireNonNull(snapshotManager, "snapshotManager must not be null");
@@ -79,6 +83,7 @@ public final class Snapshot {
     this.annotation = Objects.requireNonNull(annotation, "annotation must not be null");
     this.prettyPrint = prettyPrint;
     this.shouldUpdate = globalUpdate || annotation.update();
+    this.templateMode = Objects.requireNonNull(templateMode, "templateMode must not be null");
 
     validateAnnotation();
   }
@@ -163,12 +168,14 @@ public final class Snapshot {
   public void assertMatchesSnapshot(String snapshotName) {
     String rendered = renderTemplate();
 
-    if (prettyPrint) {
+    if (prettyPrint && templateMode == TemplateMode.HTML) {
       rendered = HtmlFormatter.prettyPrint(rendered);
     }
 
+    String fileExtension = ResolvedConfig.extensionForMode(templateMode);
     Path snapshotPath =
-        snapshotManager.resolveSnapshotPath(testClassName, testMethodName, snapshotName);
+        snapshotManager.resolveSnapshotPath(
+            testClassName, testMethodName, snapshotName, fileExtension);
 
     if (!snapshotManager.snapshotExists(snapshotPath) || shouldUpdate) {
       snapshotManager.writeSnapshot(snapshotPath, rendered);

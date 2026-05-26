@@ -64,7 +64,7 @@ public final class SnapshotManager {
   }
 
   /**
-   * Resolves the snapshot file path for a given test.
+   * Resolves the snapshot file path for a given test using the default {@code .html} extension.
    *
    * @param testClassName the fully qualified test class name
    * @param testMethodName the test method name
@@ -75,15 +75,32 @@ public final class SnapshotManager {
    */
   public Path resolveSnapshotPath(
       String testClassName, String testMethodName, String snapshotName) {
+    return resolveSnapshotPath(testClassName, testMethodName, snapshotName, ".html");
+  }
+
+  /**
+   * Resolves the snapshot file path for a given test with an explicit file extension.
+   *
+   * @param testClassName the fully qualified test class name
+   * @param testMethodName the test method name
+   * @param snapshotName optional snapshot name (for multiple snapshots per test), may be {@code
+   *     null}
+   * @param fileExtension file extension including the leading dot (e.g. {@code ".xml"})
+   * @return the path to the snapshot file
+   * @throws NullPointerException if testClassName, testMethodName, or fileExtension is null
+   */
+  public Path resolveSnapshotPath(
+      String testClassName, String testMethodName, String snapshotName, String fileExtension) {
     Objects.requireNonNull(testClassName, "testClassName must not be null");
     Objects.requireNonNull(testMethodName, "testMethodName must not be null");
+    Objects.requireNonNull(fileExtension, "fileExtension must not be null");
 
     String fileName;
     if (snapshotName != null && !snapshotName.isEmpty()) {
       validateSnapshotName(snapshotName);
-      fileName = testMethodName + "[" + snapshotName + "].html";
+      fileName = testMethodName + "[" + snapshotName + "]" + fileExtension;
     } else {
-      fileName = testMethodName + ".html";
+      fileName = testMethodName + fileExtension;
     }
     return snapshotBaseDir.resolve(testClassName).resolve(fileName);
   }

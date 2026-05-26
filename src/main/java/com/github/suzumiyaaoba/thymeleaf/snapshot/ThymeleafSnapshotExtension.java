@@ -89,7 +89,8 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
                 testMethod.getName(), context.getDisplayName(), context.getUniqueId()),
             snapshotTest,
             config.prettyPrint(),
-            globalUpdate);
+            globalUpdate,
+            config.templateMode());
 
     // Store in method-level extension context
     context.getStore(NAMESPACE).put(SNAPSHOT_KEY, snapshot);
@@ -122,7 +123,10 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
         RENDERER_KEY,
         key ->
             new ThymeleafRenderer(
-                config.templatePrefix(), config.templateSuffix(), config.characterEncoding()),
+                config.templatePrefix(),
+                config.templateSuffix(),
+                config.characterEncoding(),
+                config.templateMode()),
         ThymeleafRenderer.class);
   }
 

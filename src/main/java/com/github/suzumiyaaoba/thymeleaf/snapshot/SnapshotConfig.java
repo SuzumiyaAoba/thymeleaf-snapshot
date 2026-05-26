@@ -6,6 +6,7 @@ import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.thymeleaf.templatemode.TemplateMode;
 
 /**
  * Class-level annotation to configure the Thymeleaf snapshot test environment.
@@ -63,4 +64,13 @@ public @interface SnapshotConfig {
    * @return the character encoding
    */
   String characterEncoding() default "UTF-8";
+
+  /**
+   * Thymeleaf template mode. Determines the rendering engine behaviour and the file extension used
+   * for snapshot files ({@code .html}, {@code .xml}, {@code .txt}, {@code .js}, {@code .css}).
+   * {@code prettyPrint} is silently ignored for non-HTML modes.
+   *
+   * @return the template mode
+   */
+  TemplateMode templateMode() default TemplateMode.HTML;
 }

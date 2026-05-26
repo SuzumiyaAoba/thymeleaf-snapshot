@@ -11,6 +11,7 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.thymeleaf.templatemode.TemplateMode;
 
 class SnapshotUnitTest {
 
@@ -53,7 +54,14 @@ class SnapshotUnitTest {
 
   private Snapshot inlineSnapshot(String tmpl, boolean prettyPrint, boolean globalUpdate) {
     return new Snapshot(
-        renderer, manager, "TC", "tm", annotation("", tmpl, false), prettyPrint, globalUpdate);
+        renderer,
+        manager,
+        "TC",
+        "tm",
+        annotation("", tmpl, false),
+        prettyPrint,
+        globalUpdate,
+        TemplateMode.HTML);
   }
 
   private Path writeExistingSnapshot(String content) throws Exception {
@@ -127,6 +135,28 @@ class SnapshotUnitTest {
         .doesNotContain("<body>");
   }
 
+  @Test
+  void assertMatchesSnapshot_prettyPrintSkippedForNonHtmlMode() throws Exception {
+    ThymeleafRenderer textRenderer = new ThymeleafRenderer("templates/", ".txt", "UTF-8");
+    var s =
+        new Snapshot(
+            textRenderer,
+            manager,
+            "TC",
+            "tmText",
+            annotation("", "Hello, [(${name})]!", false),
+            true, // prettyPrint=true but mode is TEXT, so it should be ignored
+            false,
+            TemplateMode.TEXT);
+    s.setVariable("name", "World");
+
+    s.assertMatchesSnapshot();
+
+    Path snapshotPath = tempDir.resolve("TC/tmText.txt");
+    assertThat(snapshotPath).exists();
+    assertThat(Files.readString(snapshotPath)).contains("Hello, World!");
+  }
+
   // --- assertMatchesSnapshot: update mode ---
 
   @Test
@@ -152,7 +182,8 @@ class SnapshotUnitTest {
             "tm",
             annotation("", "<p th:text=\"${msg}\">x</p>", true),
             false,
-            false);
+            false,
+            TemplateMode.HTML);
     s.setVariable("msg", "new");
     s.assertMatchesSnapshot();
 
@@ -172,6 +203,49 @@ class SnapshotUnitTest {
         .isInstanceOf(SnapshotMismatchException.class);
   }
 
+  // --- assertMatchesSnapshot: non-HTML modes use correct extension ---
+
+  @Test
+  void assertMatchesSnapshot_xmlModeWritesXmlFile() throws Exception {
+    ThymeleafRenderer xmlRenderer = new ThymeleafRenderer("templates/", ".xml", "UTF-8");
+    var s =
+        new Snapshot(
+            xmlRenderer,
+            manager,
+            "TC",
+            "tmXml",
+            annotation("", "<item th:text=\"${val}\">x</item>", false),
+            false,
+            false,
+            TemplateMode.XML);
+    s.setVariable("val", "hello");
+
+    s.assertMatchesSnapshot();
+
+    assertThat(tempDir.resolve("TC/tmXml.xml")).exists();
+  }
+
+  @Test
+  void assertMatchesSnapshot_textModeWritesTxtFile() throws Exception {
+    ThymeleafRenderer textRenderer = new ThymeleafRenderer("templates/", ".txt", "UTF-8");
+    var s =
+        new Snapshot(
+            textRenderer,
+            manager,
+            "TC",
+            "tmTxt",
+            annotation("", "Hello, [(${name})]!", false),
+            false,
+            false,
+            TemplateMode.TEXT);
+    s.setVariable("name", "World");
+
+    s.assertMatchesSnapshot();
+
+    assertThat(tempDir.resolve("TC/tmTxt.txt")).exists();
+    assertThat(Files.readString(tempDir.resolve("TC/tmTxt.txt"))).isEqualTo("Hello, World!");
+  }
+
   // --- validateAnnotation ---
 
   @Test
@@ -185,7 +259,8 @@ class SnapshotUnitTest {
                     "tm",
                     annotation("tmpl", "inline", false),
                     false,
-                    false))
+                    false,
+                    TemplateMode.HTML))
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -194,7 +269,14 @@ class SnapshotUnitTest {
     assertThatThrownBy(
             () ->
                 new Snapshot(
-                    renderer, manager, "TC", "tm", annotation("", "", false), false, false))
+                    renderer,
+                    manager,
+                    "TC",
+                    "tm",
+                    annotation("", "", false),
+                    false,
+                    false,
+                    TemplateMode.HTML))
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -203,7 +285,14 @@ class SnapshotUnitTest {
     assertThatThrownBy(
             () ->
                 new Snapshot(
-                    renderer, manager, "TC", "tm", annotation("   ", "", false), false, false))
+                    renderer,
+                    manager,
+                    "TC",
+                    "tm",
+                    annotation("   ", "", false),
+                    false,
+                    false,
+                    TemplateMode.HTML))
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -212,7 +301,14 @@ class SnapshotUnitTest {
     assertThatThrownBy(
             () ->
                 new Snapshot(
-                    renderer, manager, "TC", "tm", annotation("", "\n\t", false), false, false))
+                    renderer,
+                    manager,
+                    "TC",
+                    "tm",
+                    annotation("", "\n\t", false),
+                    false,
+                    false,
+                    TemplateMode.HTML))
         .isInstanceOf(IllegalStateException.class);
   }
 }
