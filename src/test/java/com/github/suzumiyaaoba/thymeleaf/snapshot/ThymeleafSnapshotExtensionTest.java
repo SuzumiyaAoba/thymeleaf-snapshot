@@ -68,28 +68,6 @@ class ThymeleafSnapshotExtensionTest {
   }
 
   @Test
-  void resolveSnapshotMethodNameIncludesParameterizedInvocationDisplayName() {
-    String methodName =
-        ThymeleafSnapshotExtension.resolveSnapshotMethodName(
-            "shouldRender",
-            "[2] locale=en_US",
-            "[engine:junit-jupiter]/[test-template:shouldRender]/[test-template-invocation:#2]");
-
-    assertEquals("shouldRender[[2] locale=en_US]", methodName);
-  }
-
-  @Test
-  void resolveSnapshotMethodNameSanitizesDisplayNameForFileSystemUse() {
-    String methodName =
-        ThymeleafSnapshotExtension.resolveSnapshotMethodName(
-            "shouldRender",
-            "[1] locale=en/US:variant?",
-            "[engine:junit-jupiter]/[test-template:shouldRender]/[test-template-invocation:#1]");
-
-    assertEquals("shouldRender[[1] locale=en_US_variant_]", methodName);
-  }
-
-  @Test
   void resolveSnapshotConfigReturnsNullWhenAbsent() {
     class NoConfig {}
     assertNull(ThymeleafSnapshotExtension.resolveSnapshotConfig(NoConfig.class));

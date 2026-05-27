@@ -151,21 +151,6 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
   }
 
   static String resolveSnapshotMethodName(String methodName, String displayName, String uniqueId) {
-    if (!isTestTemplateInvocation(uniqueId)) {
-      return methodName;
-    }
-    return methodName + "[" + sanitizeSnapshotName(displayName) + "]";
-  }
-
-  private static boolean isTestTemplateInvocation(String uniqueId) {
-    return uniqueId != null && uniqueId.contains("test-template-invocation");
-  }
-
-  private static String sanitizeSnapshotName(String value) {
-    if (value == null || value.isBlank()) {
-      return "invocation";
-    }
-    String sanitized = value.replaceAll("[<>:\"/\\\\|?*\\p{Cntrl}]", "_").trim();
-    return sanitized.isEmpty() ? "invocation" : sanitized;
+    return methodName;
   }
 }
