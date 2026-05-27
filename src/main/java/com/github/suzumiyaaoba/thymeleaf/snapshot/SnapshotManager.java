@@ -80,8 +80,7 @@ public final class SnapshotManager {
 
     String fileName;
     if (snapshotName != null && !snapshotName.isEmpty()) {
-      validateSnapshotName(snapshotName);
-      fileName = testMethodName + "[" + snapshotName + "].html";
+      fileName = testMethodName + "[" + sanitizeSnapshotName(snapshotName) + "].html";
     } else {
       fileName = testMethodName + ".html";
     }
@@ -173,13 +172,9 @@ public final class SnapshotManager {
     return snapshotBaseDir;
   }
 
-  private static void validateSnapshotName(String snapshotName) {
-    if (snapshotName.chars().anyMatch(c -> "/\\:*?\"<>|".indexOf(c) >= 0)) {
-      throw new IllegalArgumentException(
-          "snapshotName contains illegal characters (/, \\, :, *, ?, \", <, >, |): \""
-              + snapshotName
-              + "\"");
-    }
+  private static String sanitizeSnapshotName(String snapshotName) {
+    String sanitized = snapshotName.replaceAll("[<>:\"/\\\\|?*\\p{Cntrl}]", "_").trim();
+    return sanitized.isEmpty() ? "snapshot" : sanitized;
   }
 
   private static Path resolveSnapshotBaseDir(String snapshotDirName) {

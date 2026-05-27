@@ -52,35 +52,35 @@ class SnapshotManagerTest {
   }
 
   @Test
-  void resolveSnapshotPathRejectsNameWithForwardSlash() {
-    assertThatThrownBy(
-            () ->
-                manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "mobile/landscape"))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("mobile/landscape");
+  void resolveSnapshotPathSanitizesNameWithForwardSlash() {
+    Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "mobile/landscape");
+    assertThat(path)
+        .isEqualTo(
+            tempDir.resolve("com.example.MyTest").resolve("testMethod[mobile_landscape].html"));
   }
 
   @Test
-  void resolveSnapshotPathRejectsNameWithBackslash() {
-    assertThatThrownBy(
-            () -> manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "a\\b"))
-        .isInstanceOf(IllegalArgumentException.class);
+  void resolveSnapshotPathSanitizesNameWithBackslash() {
+    Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "a\\b");
+    assertThat(path)
+        .isEqualTo(tempDir.resolve("com.example.MyTest").resolve("testMethod[a_b].html"));
   }
 
   @Test
-  void resolveSnapshotPathRejectsNameWithColon() {
-    assertThatThrownBy(() -> manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "a:b"))
-        .isInstanceOf(IllegalArgumentException.class);
+  void resolveSnapshotPathSanitizesNameWithColon() {
+    Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "a:b");
+    assertThat(path)
+        .isEqualTo(tempDir.resolve("com.example.MyTest").resolve("testMethod[a_b].html"));
   }
 
   @Test
-  void resolveSnapshotPathRejectsNameWithOtherIllegalChars() {
+  void resolveSnapshotPathSanitizesIllegalChars() {
     for (char illegal : new char[] {'*', '?', '"', '<', '>', '|'}) {
       String name = "snap" + illegal + "shot";
-      assertThatThrownBy(
-              () -> manager.resolveSnapshotPath("com.example.MyTest", "testMethod", name))
-          .as("should reject snapshotName containing '%s'", illegal)
-          .isInstanceOf(IllegalArgumentException.class);
+      Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", name);
+      assertThat(path)
+          .as("should sanitize snapshotName containing '%s'", illegal)
+          .isEqualTo(tempDir.resolve("com.example.MyTest").resolve("testMethod[snap_shot].html"));
     }
   }
 
