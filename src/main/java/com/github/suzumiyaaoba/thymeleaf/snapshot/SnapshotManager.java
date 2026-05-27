@@ -5,6 +5,7 @@ import java.io.UncheckedIOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystemNotFoundException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -237,7 +238,10 @@ public final class SnapshotManager {
             .resolve("test")
             .resolve("resources")
             .resolve(snapshotDirName);
-      } catch (URISyntaxException e) {
+      } catch (URISyntaxException
+          | FileSystemNotFoundException
+          | IllegalArgumentException
+          | UnsupportedOperationException e) {
         // Fall through to default
       }
     }
