@@ -196,7 +196,7 @@ public final class SnapshotManager {
     return snapshotBaseDir;
   }
 
-  private static String normalize(String s) {
+  static String normalize(String s) {
     return stripTrailingNewlines(s.replace("\r\n", "\n"));
   }
 
