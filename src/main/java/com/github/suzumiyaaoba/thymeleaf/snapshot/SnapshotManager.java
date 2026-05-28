@@ -35,6 +35,8 @@ import java.util.Objects;
  */
 public final class SnapshotManager {
 
+  private static final String ILLEGAL_FILENAME_CHARS = "[<>:\"/\\\\|?*\\p{Cntrl}]";
+
   private final Path snapshotBaseDir;
 
   /**
@@ -173,7 +175,7 @@ public final class SnapshotManager {
   }
 
   private static String sanitizeSnapshotName(String snapshotName) {
-    String sanitized = snapshotName.replaceAll("[<>:\"/\\\\|?*\\p{Cntrl}]", "_").trim();
+    String sanitized = snapshotName.replaceAll(ILLEGAL_FILENAME_CHARS, "_").trim();
     return sanitized.isEmpty() ? "snapshot" : sanitized;
   }
 

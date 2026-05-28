@@ -52,35 +52,26 @@ class SnapshotManagerTest {
   }
 
   @Test
-  void resolveSnapshotPathSanitizesNameWithForwardSlash() {
-    Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "mobile/landscape");
-    assertThat(path)
-        .isEqualTo(
-            tempDir.resolve("com.example.MyTest").resolve("testMethod[mobile_landscape].html"));
-  }
-
-  @Test
-  void resolveSnapshotPathSanitizesNameWithBackslash() {
-    Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "a\\b");
-    assertThat(path)
-        .isEqualTo(tempDir.resolve("com.example.MyTest").resolve("testMethod[a_b].html"));
-  }
-
-  @Test
-  void resolveSnapshotPathSanitizesNameWithColon() {
-    Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "a:b");
-    assertThat(path)
-        .isEqualTo(tempDir.resolve("com.example.MyTest").resolve("testMethod[a_b].html"));
-  }
-
-  @Test
   void resolveSnapshotPathSanitizesIllegalChars() {
-    for (char illegal : new char[] {'*', '?', '"', '<', '>', '|'}) {
-      String name = "snap" + illegal + "shot";
-      Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", name);
+    record Case(String input, String expectedFile) {}
+    var cases =
+        new Case[] {
+          new Case("mobile/landscape", "testMethod[mobile_landscape].html"),
+          new Case("a\\b", "testMethod[a_b].html"),
+          new Case("a:b", "testMethod[a_b].html"),
+          new Case("snap*shot", "testMethod[snap_shot].html"),
+          new Case("snap?shot", "testMethod[snap_shot].html"),
+          new Case("snap\"shot", "testMethod[snap_shot].html"),
+          new Case("snap<shot", "testMethod[snap_shot].html"),
+          new Case("snap>shot", "testMethod[snap_shot].html"),
+          new Case("snap|shot", "testMethod[snap_shot].html"),
+          new Case("   ", "testMethod[snapshot].html"),
+        };
+    for (var c : cases) {
+      Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", c.input());
       assertThat(path)
-          .as("should sanitize snapshotName containing '%s'", illegal)
-          .isEqualTo(tempDir.resolve("com.example.MyTest").resolve("testMethod[snap_shot].html"));
+          .as("snapshotName='%s'", c.input())
+          .isEqualTo(tempDir.resolve("com.example.MyTest").resolve(c.expectedFile()));
     }
   }
 
