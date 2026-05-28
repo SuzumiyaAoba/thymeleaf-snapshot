@@ -208,7 +208,8 @@ class SnapshotUnitTest {
 
   @Test
   void assertMatchesSnapshot_xmlModeWritesXmlFile() throws Exception {
-    ThymeleafRenderer xmlRenderer = new ThymeleafRenderer("templates/", ".xml", "UTF-8");
+    ThymeleafRenderer xmlRenderer =
+        new ThymeleafRenderer("templates/", ".xml", "UTF-8", TemplateMode.XML);
     var s =
         new Snapshot(
             xmlRenderer,
@@ -228,7 +229,8 @@ class SnapshotUnitTest {
 
   @Test
   void assertMatchesSnapshot_textModeWritesTxtFile() throws Exception {
-    ThymeleafRenderer textRenderer = new ThymeleafRenderer("templates/", ".txt", "UTF-8");
+    ThymeleafRenderer textRenderer =
+        new ThymeleafRenderer("templates/", ".txt", "UTF-8", TemplateMode.TEXT);
     var s =
         new Snapshot(
             textRenderer,

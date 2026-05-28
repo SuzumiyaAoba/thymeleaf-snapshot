@@ -48,10 +48,9 @@ record ResolvedConfig(
     return switch (mode) {
       case HTML -> ".html";
       case XML -> ".xml";
-      case TEXT -> ".txt";
+      case TEXT, RAW -> ".txt";
       case JAVASCRIPT -> ".js";
       case CSS -> ".css";
-      case RAW -> ".txt";
     };
   }
 
