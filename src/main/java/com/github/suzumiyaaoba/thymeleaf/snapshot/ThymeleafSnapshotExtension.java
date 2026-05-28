@@ -86,8 +86,7 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
             renderer,
             snapshotManager,
             testClass.getName(),
-            resolveSnapshotMethodName(
-                testMethod.getName(), context.getDisplayName(), context.getUniqueId()),
+            resolveSnapshotMethodName(testMethod.getName()),
             snapshotTest,
             config.prettyPrint(),
             globalUpdate);
@@ -150,7 +149,7 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
     return null;
   }
 
-  static String resolveSnapshotMethodName(String methodName, String displayName, String uniqueId) {
+  static String resolveSnapshotMethodName(String methodName) {
     return methodName;
   }
 }

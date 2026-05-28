@@ -60,9 +60,7 @@ class ThymeleafSnapshotExtensionTest {
 
   @Test
   void resolveSnapshotMethodNameKeepsPlainTestMethodName() {
-    String methodName =
-        ThymeleafSnapshotExtension.resolveSnapshotMethodName(
-            "shouldRender", "shouldRender()", "[engine:junit-jupiter]/[class:Example]");
+    String methodName = ThymeleafSnapshotExtension.resolveSnapshotMethodName("shouldRender");
 
     assertEquals("shouldRender", methodName);
   }
