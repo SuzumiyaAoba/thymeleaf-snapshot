@@ -54,35 +54,26 @@ class SnapshotManagerTest {
   }
 
   @Test
-  void resolveSnapshotPathRejectsNameWithForwardSlash() {
-    assertThatThrownBy(
-            () ->
-                manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "mobile/landscape"))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("mobile/landscape");
-  }
-
-  @Test
-  void resolveSnapshotPathRejectsNameWithBackslash() {
-    assertThatThrownBy(
-            () -> manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "a\\b"))
-        .isInstanceOf(IllegalArgumentException.class);
-  }
-
-  @Test
-  void resolveSnapshotPathRejectsNameWithColon() {
-    assertThatThrownBy(() -> manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "a:b"))
-        .isInstanceOf(IllegalArgumentException.class);
-  }
-
-  @Test
-  void resolveSnapshotPathRejectsNameWithOtherIllegalChars() {
-    for (char illegal : new char[] {'*', '?', '"', '<', '>', '|'}) {
-      String name = "snap" + illegal + "shot";
-      assertThatThrownBy(
-              () -> manager.resolveSnapshotPath("com.example.MyTest", "testMethod", name))
-          .as("should reject snapshotName containing '%s'", illegal)
-          .isInstanceOf(IllegalArgumentException.class);
+  void resolveSnapshotPathSanitizesIllegalChars() {
+    record Case(String input, String expectedFile) {}
+    var cases =
+        new Case[] {
+          new Case("mobile/landscape", "testMethod[mobile_landscape].html"),
+          new Case("a\\b", "testMethod[a_b].html"),
+          new Case("a:b", "testMethod[a_b].html"),
+          new Case("snap*shot", "testMethod[snap_shot].html"),
+          new Case("snap?shot", "testMethod[snap_shot].html"),
+          new Case("snap\"shot", "testMethod[snap_shot].html"),
+          new Case("snap<shot", "testMethod[snap_shot].html"),
+          new Case("snap>shot", "testMethod[snap_shot].html"),
+          new Case("snap|shot", "testMethod[snap_shot].html"),
+          new Case("   ", "testMethod[snapshot].html"),
+        };
+    for (var c : cases) {
+      Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", c.input());
+      assertThat(path)
+          .as("snapshotName='%s'", c.input())
+          .isEqualTo(tempDir.resolve("com.example.MyTest").resolve(c.expectedFile()));
     }
   }
 
