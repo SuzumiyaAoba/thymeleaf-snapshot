@@ -87,7 +87,7 @@ public final class SnapshotManager {
 
     String fileName;
     if (snapshotName != null && !snapshotName.isEmpty()) {
-      fileName = testMethodName + "[" + sanitizeSnapshotName(snapshotName) + "].html";
+      fileName = testMethodName + "[" + sanitizeForFileName(snapshotName, "snapshot") + "].html";
     } else {
       fileName = testMethodName + ".html";
     }
@@ -210,9 +210,24 @@ public final class SnapshotManager {
     return end == s.length() ? s : s.substring(0, end);
   }
 
-  private static String sanitizeSnapshotName(String snapshotName) {
-    String sanitized = snapshotName.replaceAll(ILLEGAL_FILENAME_CHARS, "_").trim();
-    return sanitized.isEmpty() ? "snapshot" : sanitized;
+  /**
+   * Replaces filesystem-illegal characters in {@code value} with {@code _}, trims the result, and
+   * returns {@code fallback} when the sanitized value is blank.
+   *
+   * <p>Shared with {@link ThymeleafSnapshotExtension} so that explicit snapshot names and
+   * parameterized invocation names are sanitized by identical rules; only the blank-name fallback
+   * differs between call sites.
+   *
+   * @param value the raw name to sanitize, may be {@code null}
+   * @param fallback the value to return when {@code value} sanitizes to blank
+   * @return a filesystem-safe name
+   */
+  static String sanitizeForFileName(String value, String fallback) {
+    if (value == null) {
+      return fallback;
+    }
+    String sanitized = value.replaceAll(ILLEGAL_FILENAME_CHARS, "_").trim();
+    return sanitized.isEmpty() ? fallback : sanitized;
   }
 
   private static Path resolveSnapshotBaseDir(String snapshotDirName) {
