@@ -108,6 +108,18 @@ publishing {
             url = 'https://opensource.org/licenses/MIT'
           }
         }
+        developers {
+          developer {
+            id = 'SuzumiyaAoba'
+            name = 'SuzumiyaAoba'
+            url = 'https://github.com/SuzumiyaAoba'
+          }
+        }
+        scm {
+          connection = 'scm:git:git://github.com/SuzumiyaAoba/thymeleaf-snapshot.git'
+          developerConnection = 'scm:git:ssh://github.com/SuzumiyaAoba/thymeleaf-snapshot.git'
+          url = 'https://github.com/SuzumiyaAoba/thymeleaf-snapshot'
+        }
       }
     }
   }
