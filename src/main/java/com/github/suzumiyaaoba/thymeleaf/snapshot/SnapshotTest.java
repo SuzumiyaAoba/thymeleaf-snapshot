@@ -19,8 +19,9 @@ import org.junit.jupiter.api.Test;
  * <pre>{@code
  * @SnapshotTest(template = "pages/home")
  * void shouldRenderHomePage(Snapshot snapshot) {
- *     snapshot.setVariable("title", "Hello");
- *     snapshot.assertMatchesSnapshot();
+ *     snapshot
+ *         .setVariable("title", "Hello")
+ *         .assertMatchesSnapshot();
  * }
  * }</pre>
  *
@@ -29,8 +30,7 @@ import org.junit.jupiter.api.Test;
  * <pre>{@code
  * @SnapshotTest(inlineTemplate = "<p th:text=\"${msg}\">placeholder</p>")
  * void shouldRenderInline(Snapshot snapshot) {
- *     snapshot.setVariable("msg", "Hello!");
- *     snapshot.assertMatchesSnapshot();
+ *     snapshot.setVariable("msg", "Hello!").assertMatchesSnapshot();
  * }
  * }</pre>
  */
