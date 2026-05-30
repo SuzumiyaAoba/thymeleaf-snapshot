@@ -60,33 +60,9 @@ class ThymeleafSnapshotExtensionTest {
 
   @Test
   void resolveSnapshotMethodNameKeepsPlainTestMethodName() {
-    String methodName =
-        ThymeleafSnapshotExtension.resolveSnapshotMethodName(
-            "shouldRender", "shouldRender()", "[engine:junit-jupiter]/[class:Example]");
+    String methodName = ThymeleafSnapshotExtension.resolveSnapshotMethodName("shouldRender");
 
     assertEquals("shouldRender", methodName);
-  }
-
-  @Test
-  void resolveSnapshotMethodNameIncludesParameterizedInvocationDisplayName() {
-    String methodName =
-        ThymeleafSnapshotExtension.resolveSnapshotMethodName(
-            "shouldRender",
-            "[2] locale=en_US",
-            "[engine:junit-jupiter]/[test-template:shouldRender]/[test-template-invocation:#2]");
-
-    assertEquals("shouldRender[[2] locale=en_US]", methodName);
-  }
-
-  @Test
-  void resolveSnapshotMethodNameSanitizesDisplayNameForFileSystemUse() {
-    String methodName =
-        ThymeleafSnapshotExtension.resolveSnapshotMethodName(
-            "shouldRender",
-            "[1] locale=en/US:variant?",
-            "[engine:junit-jupiter]/[test-template:shouldRender]/[test-template-invocation:#1]");
-
-    assertEquals("shouldRender[[1] locale=en_US_variant_]", methodName);
   }
 
   @Test

@@ -115,8 +115,7 @@ public class ThymeleafSnapshotExtension
             renderer,
             snapshotManager,
             testClass.getName(),
-            resolveSnapshotMethodName(
-                testMethod.getName(), context.getDisplayName(), context.getUniqueId()),
+            resolveSnapshotMethodName(testMethod.getName()),
             snapshotTest,
             config.prettyPrint(),
             globalUpdate,
@@ -236,14 +235,7 @@ public class ThymeleafSnapshotExtension
     return null;
   }
 
-  static String resolveSnapshotMethodName(String methodName, String displayName, String uniqueId) {
-    if (!isTestTemplateInvocation(uniqueId)) {
-      return methodName;
-    }
-    return methodName + "[" + SnapshotManager.sanitizeForFileName(displayName, "invocation") + "]";
-  }
-
-  private static boolean isTestTemplateInvocation(String uniqueId) {
-    return uniqueId != null && uniqueId.contains("test-template-invocation");
+  static String resolveSnapshotMethodName(String methodName) {
+    return methodName;
   }
 }
