@@ -6,8 +6,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.lang.annotation.Annotation;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -53,7 +55,28 @@ class SnapshotUnitTest {
 
   private Snapshot inlineSnapshot(String tmpl, boolean prettyPrint, boolean globalUpdate) {
     return new Snapshot(
-        renderer, manager, "TC", "tm", annotation("", tmpl, false), prettyPrint, globalUpdate);
+        renderer,
+        manager,
+        "TC",
+        "tm",
+        annotation("", tmpl, false),
+        prettyPrint,
+        globalUpdate,
+        false,
+        new HashSet<>());
+  }
+
+  private Snapshot inlineSnapshotCi(String tmpl) {
+    return new Snapshot(
+        renderer,
+        manager,
+        "TC",
+        "tm",
+        annotation("", tmpl, false),
+        false,
+        false,
+        true,
+        new HashSet<>());
   }
 
   private Path writeExistingSnapshot(String content) throws Exception {
@@ -150,7 +173,9 @@ class SnapshotUnitTest {
             "tm",
             annotation("", "<p th:text=\"${msg}\">x</p>", true),
             false,
-            false);
+            false,
+            false,
+            new HashSet<>());
     s.setVariable("msg", "new").assertMatchesSnapshot();
 
     assertThat(Files.readString(snapshotPath)).contains("new");
@@ -169,6 +194,96 @@ class SnapshotUnitTest {
         .isInstanceOf(SnapshotMismatchException.class);
   }
 
+  // --- assertMatchesSnapshot: accessedPaths tracking ---
+
+  @Test
+  void assertMatchesSnapshot_recordsResolvedPathInAccessedSet() throws Exception {
+    Set<Path> accessed = new HashSet<>();
+    var s =
+        new Snapshot(
+            renderer,
+            manager,
+            "TC",
+            "tm",
+            annotation("", "<p>hi</p>", false),
+            false,
+            false,
+            false,
+            accessed);
+
+    s.assertMatchesSnapshot();
+
+    assertThat(accessed).containsExactly(tempDir.resolve("TC/tm.html"));
+  }
+
+  @Test
+  void assertMatchesSnapshot_recordsNamedPathInAccessedSet() throws Exception {
+    Set<Path> accessed = new HashSet<>();
+    var s =
+        new Snapshot(
+            renderer,
+            manager,
+            "TC",
+            "tm",
+            annotation("", "<p>hi</p>", false),
+            false,
+            false,
+            false,
+            accessed);
+
+    s.assertMatchesSnapshot("v1");
+    s.assertMatchesSnapshot("v2");
+
+    assertThat(accessed)
+        .containsExactlyInAnyOrder(
+            tempDir.resolve("TC/tm[v1].html"), tempDir.resolve("TC/tm[v2].html"));
+  }
+
+  @Test
+  void assertMatchesSnapshot_fluentCopiesShareAccessedSet() throws Exception {
+    Set<Path> accessed = new HashSet<>();
+    var base =
+        new Snapshot(
+            renderer,
+            manager,
+            "TC",
+            "tm",
+            annotation("", "<p th:text=\"${x}\">x</p>", false),
+            false,
+            false,
+            false,
+            accessed);
+
+    base.setVariable("x", "a").assertMatchesSnapshot("a");
+    base.setVariable("x", "b").assertMatchesSnapshot("b");
+
+    assertThat(accessed).hasSize(2);
+  }
+
+  @Test
+  void assertMatchesSnapshot_exceptionCarriesNormalizedActual() throws Exception {
+    // Store a snapshot that differs from what the template renders.
+    // Write with an explicit trailing newline to simulate an editor-added newline
+    // so that reading it back normalizes to no trailing newline.
+    writeExistingSnapshot("<p>old</p>\n");
+
+    var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, false);
+
+    // Capture the thrown exception and verify both sides are normalized
+    SnapshotMismatchException ex =
+        (SnapshotMismatchException)
+            assertThatThrownBy(() -> s.setVariable("msg", "new").assertMatchesSnapshot())
+                .isInstanceOf(SnapshotMismatchException.class)
+                .actual();
+
+    assertThat(ex.getExpected()).doesNotEndWith("\n").doesNotEndWith("\r\n");
+    assertThat(ex.getActual()).doesNotEndWith("\n").doesNotEndWith("\r\n");
+
+    // The diff must not contain a spurious empty-line entry caused by trailing newline
+    String diff = SnapshotMismatchException.generateUnifiedDiff(ex.getExpected(), ex.getActual());
+    assertThat(diff).doesNotContain("\n+\n").doesNotContain("\n-\n");
+  }
+
   // --- validateAnnotation ---
 
   @Test
@@ -182,7 +297,9 @@ class SnapshotUnitTest {
                     "tm",
                     annotation("tmpl", "inline", false),
                     false,
-                    false))
+                    false,
+                    false,
+                    new HashSet<>()))
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -191,7 +308,15 @@ class SnapshotUnitTest {
     assertThatThrownBy(
             () ->
                 new Snapshot(
-                    renderer, manager, "TC", "tm", annotation("", "", false), false, false))
+                    renderer,
+                    manager,
+                    "TC",
+                    "tm",
+                    annotation("", "", false),
+                    false,
+                    false,
+                    false,
+                    new HashSet<>()))
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -200,7 +325,15 @@ class SnapshotUnitTest {
     assertThatThrownBy(
             () ->
                 new Snapshot(
-                    renderer, manager, "TC", "tm", annotation("   ", "", false), false, false))
+                    renderer,
+                    manager,
+                    "TC",
+                    "tm",
+                    annotation("   ", "", false),
+                    false,
+                    false,
+                    false,
+                    new HashSet<>()))
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -209,7 +342,53 @@ class SnapshotUnitTest {
     assertThatThrownBy(
             () ->
                 new Snapshot(
-                    renderer, manager, "TC", "tm", annotation("", "\n\t", false), false, false))
+                    renderer,
+                    manager,
+                    "TC",
+                    "tm",
+                    annotation("", "\n\t", false),
+                    false,
+                    false,
+                    false,
+                    new HashSet<>()))
         .isInstanceOf(IllegalStateException.class);
+  }
+
+  // --- assertMatchesSnapshot: CI mode ---
+
+  @Test
+  void assertMatchesSnapshot_throwsMissingWhenCiModeAndNoSnapshot() {
+    var s = inlineSnapshotCi("<p>hello</p>");
+
+    assertThatThrownBy(s::assertMatchesSnapshot)
+        .isInstanceOf(SnapshotMissingException.class)
+        .hasMessageContaining("TC/tm.html")
+        .hasMessageContaining("CI mode");
+  }
+
+  @Test
+  void assertMatchesSnapshot_passesWhenCiModeAndSnapshotExists() throws Exception {
+    writeExistingSnapshot("<p>hello</p>");
+
+    inlineSnapshotCi("<p>hello</p>").assertMatchesSnapshot();
+  }
+
+  @Test
+  void assertMatchesSnapshot_createsSnapshotWhenCiModeAndUpdateModeActive() throws Exception {
+    var s =
+        new Snapshot(
+            renderer,
+            manager,
+            "TC",
+            "tm",
+            annotation("", "<p>hello</p>", false),
+            false,
+            true,
+            true,
+            new HashSet<>());
+
+    s.assertMatchesSnapshot();
+
+    assertThat(Files.exists(tempDir.resolve("TC/tm.html"))).isTrue();
   }
 }

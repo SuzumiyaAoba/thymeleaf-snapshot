@@ -5,10 +5,15 @@ import java.io.UncheckedIOException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystemNotFoundException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Manages snapshot file storage, retrieval, and comparison.
@@ -153,16 +158,35 @@ public final class SnapshotManager {
     return Objects.equals(normalize(expected), normalize(actual));
   }
 
-  private static String normalize(String s) {
-    return stripTrailingNewlines(s.replace("\r\n", "\n"));
-  }
-
-  private static String stripTrailingNewlines(String s) {
-    int end = s.length();
-    while (end > 0 && (s.charAt(end - 1) == '\n' || s.charAt(end - 1) == '\r')) {
-      end--;
+  /**
+   * Returns snapshot files under the given test class directory that were not accessed during the
+   * current test run.
+   *
+   * <p>A file is considered orphaned when it exists on disk but its path was never recorded by
+   * {@link #resolveSnapshotPath} during this run — typically because the test method was renamed or
+   * deleted.
+   *
+   * @param testClassName the fully qualified test class name
+   * @param accessedPaths the set of snapshot paths that were accessed in this run
+   * @return a sorted list of orphaned snapshot file paths; empty if the class directory does not
+   *     exist or all files were accessed
+   */
+  List<Path> findOrphanedSnapshots(String testClassName, Set<Path> accessedPaths) {
+    Path classDir = snapshotBaseDir.resolve(testClassName);
+    if (!Files.exists(classDir)) {
+      return Collections.emptyList();
     }
-    return end == s.length() ? s : s.substring(0, end);
+    List<Path> orphans = new ArrayList<>();
+    try (var stream = Files.walk(classDir)) {
+      stream
+          .filter(Files::isRegularFile)
+          .filter(p -> !accessedPaths.contains(p))
+          .forEach(orphans::add);
+    } catch (IOException e) {
+      return Collections.emptyList();
+    }
+    Collections.sort(orphans);
+    return Collections.unmodifiableList(orphans);
   }
 
   /**
@@ -172,6 +196,18 @@ public final class SnapshotManager {
    */
   public Path getSnapshotBaseDir() {
     return snapshotBaseDir;
+  }
+
+  static String normalize(String s) {
+    return stripTrailingNewlines(s.replace("\r\n", "\n"));
+  }
+
+  private static String stripTrailingNewlines(String s) {
+    int end = s.length();
+    while (end > 0 && (s.charAt(end - 1) == '\n' || s.charAt(end - 1) == '\r')) {
+      end--;
+    }
+    return end == s.length() ? s : s.substring(0, end);
   }
 
   private static String sanitizeSnapshotName(String snapshotName) {
@@ -199,7 +235,10 @@ public final class SnapshotManager {
             .resolve("test")
             .resolve("resources")
             .resolve(snapshotDirName);
-      } catch (URISyntaxException e) {
+      } catch (URISyntaxException
+          | FileSystemNotFoundException
+          | IllegalArgumentException
+          | UnsupportedOperationException e) {
         // Fall through to default
       }
     }

@@ -1,6 +1,13 @@
 package com.github.suzumiyaaoba.thymeleaf.snapshot;
 
+import java.io.IOException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
@@ -16,6 +23,7 @@ import org.junit.jupiter.api.extension.ParameterResolver;
  *   <li>Initializes the Thymeleaf template engine based on {@link SnapshotConfig}
  *   <li>Creates and injects {@link Snapshot} instances into test methods
  *   <li>Manages snapshot file storage via {@link SnapshotManager}
+ *   <li>Reports (or deletes under update mode) orphaned snapshot files after all tests complete
  * </ul>
  *
  * <p>The {@link ThymeleafRenderer} and {@link SnapshotManager} are cached at the class level to
@@ -36,7 +44,8 @@ import org.junit.jupiter.api.extension.ParameterResolver;
  * }
  * }</pre>
  */
-public class ThymeleafSnapshotExtension implements BeforeEachCallback, ParameterResolver {
+public class ThymeleafSnapshotExtension
+    implements BeforeEachCallback, AfterAllCallback, ParameterResolver {
 
   private static final ExtensionContext.Namespace NAMESPACE =
       ExtensionContext.Namespace.create(ThymeleafSnapshotExtension.class);
@@ -44,6 +53,7 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
   private static final String SNAPSHOT_KEY = "snapshot";
   private static final String RENDERER_KEY = "renderer";
   private static final String MANAGER_KEY = "snapshotManager";
+  private static final String ACCESSED_PATHS_KEY = "accessedPaths";
 
   /**
    * System property name to enable global snapshot update mode. Set {@code -Dsnapshot.update=true}
@@ -59,6 +69,19 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
    * <p>Example: {@code ./gradlew test -Dsnapshot.baseDir=/tmp/snap}
    */
   public static final String BASE_DIR_PROPERTY = "snapshot.baseDir";
+
+  /**
+   * System property name to enable CI mode. Set {@code -Dsnapshot.ci=true} to make the test fail
+   * (instead of auto-creating the file) when a snapshot file does not exist.
+   *
+   * <p>This prevents a test from silently passing on CI when its snapshot file was not committed.
+   * Add this flag to your CI build command to enforce that all snapshots are committed:
+   *
+   * <pre>{@code
+   * ./gradlew test -Dsnapshot.ci=true
+   * }</pre>
+   */
+  public static final String CI_PROPERTY = "snapshot.ci";
 
   @Override
   public void beforeEach(ExtensionContext context) {
@@ -80,6 +103,12 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
     // Check for global update mode
     boolean globalUpdate = Boolean.getBoolean(UPDATE_PROPERTY);
 
+    // Check for CI mode via explicit system property
+    boolean ciMode = Boolean.getBoolean(CI_PROPERTY);
+
+    // Shared set that tracks every snapshot path accessed in this test class run
+    Set<Path> accessedPaths = getOrCreateAccessedPaths(context);
+
     // Create per-test Snapshot instance
     Snapshot snapshot =
         new Snapshot(
@@ -90,10 +119,59 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
                 testMethod.getName(), context.getDisplayName(), context.getUniqueId()),
             snapshotTest,
             config.prettyPrint(),
-            globalUpdate);
+            globalUpdate,
+            ciMode,
+            accessedPaths);
 
     // Store in method-level extension context
     context.getStore(NAMESPACE).put(SNAPSHOT_KEY, snapshot);
+  }
+
+  @Override
+  public void afterAll(ExtensionContext context) {
+    ExtensionContext.Store classStore = context.getStore(NAMESPACE);
+    SnapshotManager manager = classStore.get(MANAGER_KEY, SnapshotManager.class);
+    if (manager == null) {
+      return;
+    }
+
+    @SuppressWarnings("unchecked")
+    Set<Path> accessedPaths = (Set<Path>) classStore.get(ACCESSED_PATHS_KEY);
+    if (accessedPaths == null) {
+      return;
+    }
+
+    String testClassName = context.getRequiredTestClass().getName();
+    List<Path> orphans = manager.findOrphanedSnapshots(testClassName, accessedPaths);
+    if (orphans.isEmpty()) {
+      return;
+    }
+
+    boolean globalUpdate = Boolean.getBoolean(UPDATE_PROPERTY);
+    for (Path orphan : orphans) {
+      if (globalUpdate) {
+        try {
+          Files.delete(orphan);
+          System.err.println("[thymeleaf-snapshot] Deleted orphaned snapshot: " + orphan);
+        } catch (IOException e) {
+          System.err.println(
+              "[thymeleaf-snapshot] Failed to delete orphaned snapshot: "
+                  + orphan
+                  + " ("
+                  + e.getMessage()
+                  + ")");
+        }
+      } else {
+        System.err.println(
+            "[thymeleaf-snapshot] Orphaned snapshot (not accessed in this test run): " + orphan);
+      }
+    }
+    if (!globalUpdate) {
+      System.err.println(
+          "[thymeleaf-snapshot] Run with -D"
+              + UPDATE_PROPERTY
+              + "=true to delete orphaned snapshots automatically.");
+    }
   }
 
   @Override
@@ -133,6 +211,14 @@ public class ThymeleafSnapshotExtension implements BeforeEachCallback, Parameter
     ExtensionContext.Store classStore = getClassStore(context);
     return classStore.getOrComputeIfAbsent(
         MANAGER_KEY, key -> new SnapshotManager(config.snapshotDir()), SnapshotManager.class);
+  }
+
+  /** Gets (or lazily creates) the shared set of accessed snapshot paths for this test class. */
+  @SuppressWarnings("unchecked")
+  private Set<Path> getOrCreateAccessedPaths(ExtensionContext context) {
+    return (Set<Path>)
+        getClassStore(context)
+            .getOrComputeIfAbsent(ACCESSED_PATHS_KEY, key -> ConcurrentHashMap.newKeySet());
   }
 
   /** Returns the class-level store for caching shared objects. */

@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * The main user-facing API for Thymeleaf snapshot testing.
@@ -78,6 +79,8 @@ public final class Snapshot {
   private final SnapshotTest annotation;
   private final boolean prettyPrint;
   private final boolean shouldUpdate;
+  private final boolean ciMode;
+  private final Set<Path> accessedPaths;
 
   private final Map<String, Object> variables;
   private final Locale locale;
@@ -93,6 +96,10 @@ public final class Snapshot {
    * @param annotation the SnapshotTest annotation
    * @param prettyPrint whether to pretty-print HTML
    * @param globalUpdate whether global snapshot update is enabled
+   * @param ciMode whether CI mode is active (fail instead of auto-creating missing snapshots)
+   * @param accessedPaths shared mutable set that tracks every snapshot path resolved in this test
+   *     class run; used by {@link ThymeleafSnapshotExtension} to detect orphaned snapshot files
+   *     after all tests complete
    */
   Snapshot(
       ThymeleafRenderer renderer,
@@ -101,7 +108,9 @@ public final class Snapshot {
       String testMethodName,
       SnapshotTest annotation,
       boolean prettyPrint,
-      boolean globalUpdate) {
+      boolean globalUpdate,
+      boolean ciMode,
+      Set<Path> accessedPaths) {
     this.renderer = Objects.requireNonNull(renderer, "renderer must not be null");
     this.snapshotManager =
         Objects.requireNonNull(snapshotManager, "snapshotManager must not be null");
@@ -110,6 +119,8 @@ public final class Snapshot {
     this.annotation = Objects.requireNonNull(annotation, "annotation must not be null");
     this.prettyPrint = prettyPrint;
     this.shouldUpdate = globalUpdate || annotation.update();
+    this.ciMode = ciMode;
+    this.accessedPaths = Objects.requireNonNull(accessedPaths, "accessedPaths must not be null");
     this.variables = Collections.emptyMap();
     this.locale = Locale.ROOT;
 
@@ -124,6 +135,8 @@ public final class Snapshot {
     this.annotation = base.annotation;
     this.prettyPrint = base.prettyPrint;
     this.shouldUpdate = base.shouldUpdate;
+    this.ciMode = base.ciMode;
+    this.accessedPaths = base.accessedPaths;
     this.variables = Collections.unmodifiableMap(variables);
     this.locale = locale;
   }
@@ -223,15 +236,25 @@ public final class Snapshot {
 
     Path snapshotPath =
         snapshotManager.resolveSnapshotPath(testClassName, testMethodName, snapshotName);
+    accessedPaths.add(snapshotPath);
 
-    if (!snapshotManager.snapshotExists(snapshotPath) || shouldUpdate) {
+    boolean exists = snapshotManager.snapshotExists(snapshotPath);
+    if (!exists) {
+      if (ciMode && !shouldUpdate) {
+        throw new SnapshotMissingException(snapshotPath);
+      }
+      snapshotManager.writeSnapshot(snapshotPath, rendered);
+      return;
+    }
+    if (shouldUpdate) {
       snapshotManager.writeSnapshot(snapshotPath, rendered);
       return;
     }
 
     String expected = snapshotManager.readSnapshot(snapshotPath);
-    if (!snapshotManager.matches(expected, rendered)) {
-      throw new SnapshotMismatchException(snapshotPath, expected, rendered);
+    String normalizedRendered = SnapshotManager.normalize(rendered);
+    if (!expected.equals(normalizedRendered)) {
+      throw new SnapshotMismatchException(snapshotPath, expected, normalizedRendered);
     }
   }
 
