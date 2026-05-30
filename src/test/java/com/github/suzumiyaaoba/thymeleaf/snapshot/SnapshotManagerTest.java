@@ -2,6 +2,7 @@ package com.github.suzumiyaaoba.thymeleaf.snapshot;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -10,10 +11,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class SnapshotManagerTest {
 
@@ -31,50 +36,31 @@ class SnapshotManagerTest {
     System.clearProperty(ThymeleafSnapshotExtension.BASE_DIR_PROPERTY);
   }
 
-  @Test
-  void resolveSnapshotPathWithoutName() {
-    Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", null);
-
-    assertThat(path).isEqualTo(tempDir.resolve("com.example.MyTest").resolve("testMethod.html"));
+  static Stream<Arguments> snapshotPathCases() {
+    return Stream.of(
+        arguments(null, "testMethod.html"),
+        arguments("", "testMethod.html"),
+        arguments("mobile", "testMethod[mobile].html"),
+        arguments("mobile/landscape", "testMethod[mobile_landscape].html"),
+        arguments("a\\b", "testMethod[a_b].html"),
+        arguments("a:b", "testMethod[a_b].html"),
+        arguments("snap*shot", "testMethod[snap_shot].html"),
+        arguments("snap?shot", "testMethod[snap_shot].html"),
+        arguments("snap\"shot", "testMethod[snap_shot].html"),
+        arguments("snap<shot", "testMethod[snap_shot].html"),
+        arguments("snap>shot", "testMethod[snap_shot].html"),
+        arguments("snap|shot", "testMethod[snap_shot].html"),
+        arguments("   ", "testMethod[snapshot].html"));
   }
 
-  @Test
-  void resolveSnapshotPathWithName() {
-    Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "mobile");
+  @ParameterizedTest(name = "snapshotName=[{0}] -> {1}")
+  @MethodSource("snapshotPathCases")
+  void resolveSnapshotPathBuildsAndSanitizesFileName(String snapshotName, String expectedFile) {
+    Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", snapshotName);
 
     assertThat(path)
-        .isEqualTo(tempDir.resolve("com.example.MyTest").resolve("testMethod[mobile].html"));
-  }
-
-  @Test
-  void resolveSnapshotPathWithEmptyName() {
-    Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", "");
-
-    assertThat(path).isEqualTo(tempDir.resolve("com.example.MyTest").resolve("testMethod.html"));
-  }
-
-  @Test
-  void resolveSnapshotPathSanitizesIllegalChars() {
-    record Case(String input, String expectedFile) {}
-    var cases =
-        new Case[] {
-          new Case("mobile/landscape", "testMethod[mobile_landscape].html"),
-          new Case("a\\b", "testMethod[a_b].html"),
-          new Case("a:b", "testMethod[a_b].html"),
-          new Case("snap*shot", "testMethod[snap_shot].html"),
-          new Case("snap?shot", "testMethod[snap_shot].html"),
-          new Case("snap\"shot", "testMethod[snap_shot].html"),
-          new Case("snap<shot", "testMethod[snap_shot].html"),
-          new Case("snap>shot", "testMethod[snap_shot].html"),
-          new Case("snap|shot", "testMethod[snap_shot].html"),
-          new Case("   ", "testMethod[snapshot].html"),
-        };
-    for (var c : cases) {
-      Path path = manager.resolveSnapshotPath("com.example.MyTest", "testMethod", c.input());
-      assertThat(path)
-          .as("snapshotName='%s'", c.input())
-          .isEqualTo(tempDir.resolve("com.example.MyTest").resolve(c.expectedFile()));
-    }
+        .as("snapshotName='%s'", snapshotName)
+        .isEqualTo(tempDir.resolve("com.example.MyTest").resolve(expectedFile));
   }
 
   @Test
@@ -106,39 +92,23 @@ class SnapshotManagerTest {
     assertThat(manager.readSnapshot(path)).isEqualTo(content);
   }
 
-  @Test
-  void matchesReturnsTrueForEqualContent() {
-    assertThat(manager.matches("hello", "hello")).isTrue();
+  static Stream<Arguments> matchesCases() {
+    return Stream.of(
+        arguments("equal content matches", "hello", "hello", true),
+        arguments("different content does not match", "hello", "world", false),
+        arguments("trailing newline on expected is ignored", "hello\n", "hello", true),
+        arguments("trailing newline on actual is ignored", "hello", "hello\n", true),
+        arguments("trailing CRLF on both sides is ignored", "hello\r\n", "hello\r\n", true),
+        arguments("CRLF and LF are treated as equal", "line1\r\nline2", "line1\nline2", true),
+        arguments(
+            "stored CRLF equals rendered LF", "<p>a</p>\r\n<p>b</p>", "<p>a</p>\n<p>b</p>", true));
   }
 
-  @Test
-  void matchesReturnsFalseForDifferentContent() {
-    assertThat(manager.matches("hello", "world")).isFalse();
-  }
-
-  @Test
-  void matchesIgnoresTrailingNewlineOnExpected() {
-    assertThat(manager.matches("hello\n", "hello")).isTrue();
-  }
-
-  @Test
-  void matchesIgnoresTrailingNewlineOnActual() {
-    assertThat(manager.matches("hello", "hello\n")).isTrue();
-  }
-
-  @Test
-  void matchesIgnoresTrailingCrLfOnBothSides() {
-    assertThat(manager.matches("hello\r\n", "hello\r\n")).isTrue();
-  }
-
-  @Test
-  void matchesTreatsCrLfAndLfAsEqual() {
-    assertThat(manager.matches("line1\r\nline2", "line1\nline2")).isTrue();
-  }
-
-  @Test
-  void matchesTreatsStoredCrLfAsEqualToRenderedLf() {
-    assertThat(manager.matches("<p>a</p>\r\n<p>b</p>", "<p>a</p>\n<p>b</p>")).isTrue();
+  @ParameterizedTest(name = "{0}")
+  @MethodSource("matchesCases")
+  void matchesNormalizesLineEndingsAndTrailingNewlines(
+      String description, String expected, String actual, boolean shouldMatch) {
+    assertThat(manager.matches(expected, actual)).as(description).isEqualTo(shouldMatch);
   }
 
   @Test

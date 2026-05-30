@@ -1,53 +1,71 @@
 package com.github.suzumiyaaoba.thymeleaf.snapshot;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import org.junit.jupiter.api.Test;
+import java.util.stream.Stream;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class ThymeleafRendererTest {
 
-  @Test
-  void renderClasspathTemplate() {
-    ThymeleafRenderer renderer = new ThymeleafRenderer("templates/", ".html", "UTF-8");
-    String result = renderer.render("simple", Map.of("title", "Test Title"), Locale.ENGLISH);
+  private final ThymeleafRenderer renderer = new ThymeleafRenderer("templates/", ".html", "UTF-8");
 
-    assertThat(result).isNotNull().contains("Test Title").contains("<h1>Test Title</h1>");
+  static Stream<Arguments> classpathTemplateCases() {
+    return Stream.of(
+        arguments(
+            "simple", Map.of("title", "Test Title"), List.of("Test Title", "<h1>Test Title</h1>")),
+        arguments(
+            "variables",
+            Map.of(
+                "pageTitle", "My Page",
+                "heading", "Welcome",
+                "message", "Hello World",
+                "items", List.of("Alpha", "Beta", "Gamma")),
+            List.of("My Page", "Welcome", "Hello World", "Alpha", "Beta", "Gamma")));
   }
 
-  @Test
-  void renderClasspathTemplateWithVariables() {
-    ThymeleafRenderer renderer = new ThymeleafRenderer("templates/", ".html", "UTF-8");
-    Map<String, Object> variables =
-        Map.of(
-            "pageTitle", "My Page",
-            "heading", "Welcome",
-            "message", "Hello World",
-            "items", List.of("Alpha", "Beta", "Gamma"));
-    String result = renderer.render("variables", variables, Locale.ENGLISH);
+  @ParameterizedTest(name = "render({0})")
+  @MethodSource("classpathTemplateCases")
+  void renderClasspathTemplate(
+      String template, Map<String, Object> variables, List<String> expectedFragments) {
+    String result = renderer.render(template, variables, Locale.ENGLISH);
 
-    assertThat(result)
-        .isNotNull()
-        .contains("My Page", "Welcome", "Hello World", "Alpha", "Beta", "Gamma");
+    assertThat(result).isNotNull();
+    for (String fragment : expectedFragments) {
+      assertThat(result).contains(fragment);
+    }
   }
 
-  @Test
-  void renderInlineTemplate() {
-    ThymeleafRenderer renderer = new ThymeleafRenderer("templates/", ".html", "UTF-8");
-    String template = "<p th:text=\"${message}\">placeholder</p>";
-    String result = renderer.renderInline(template, Map.of("message", "Hello!"), Locale.ENGLISH);
-
-    assertThat(result).isNotNull().contains("Hello!").doesNotContain("placeholder");
+  static Stream<Arguments> inlineTemplateCases() {
+    return Stream.of(
+        arguments(
+            "<p th:text=\"${message}\">placeholder</p>",
+            Map.of("message", "Hello!"),
+            List.of("Hello!"),
+            List.of("placeholder")),
+        arguments("<p>Static Content</p>", Map.of(), List.of("Static Content"), List.of()));
   }
 
-  @Test
-  void renderInlineTemplateWithEmptyVariables() {
-    ThymeleafRenderer renderer = new ThymeleafRenderer("templates/", ".html", "UTF-8");
-    String template = "<p>Static Content</p>";
-    String result = renderer.renderInline(template, Map.of(), Locale.ENGLISH);
+  @ParameterizedTest(name = "renderInline[{index}]: {0}")
+  @MethodSource("inlineTemplateCases")
+  void renderInlineTemplate(
+      String template,
+      Map<String, Object> variables,
+      List<String> mustContain,
+      List<String> mustNotContain) {
+    String result = renderer.renderInline(template, variables, Locale.ENGLISH);
 
-    assertThat(result).isNotNull().contains("Static Content");
+    assertThat(result).isNotNull();
+    for (String fragment : mustContain) {
+      assertThat(result).contains(fragment);
+    }
+    for (String fragment : mustNotContain) {
+      assertThat(result).doesNotContain(fragment);
+    }
   }
 }
