@@ -120,7 +120,8 @@ public class ThymeleafSnapshotExtension
             config.prettyPrint(),
             globalUpdate,
             ciMode,
-            accessedPaths);
+            accessedPaths,
+            config.templateMode());
 
     // Store in method-level extension context
     context.getStore(NAMESPACE).put(SNAPSHOT_KEY, snapshot);
@@ -200,7 +201,10 @@ public class ThymeleafSnapshotExtension
         RENDERER_KEY,
         key ->
             new ThymeleafRenderer(
-                config.templatePrefix(), config.templateSuffix(), config.characterEncoding()),
+                config.templatePrefix(),
+                config.templateSuffix(),
+                config.characterEncoding(),
+                config.templateMode()),
         ThymeleafRenderer.class);
   }
 

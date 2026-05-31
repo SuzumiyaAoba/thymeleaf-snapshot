@@ -13,6 +13,7 @@ import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.thymeleaf.templatemode.TemplateMode;
 
 class SnapshotUnitTest {
 
@@ -63,7 +64,8 @@ class SnapshotUnitTest {
         prettyPrint,
         globalUpdate,
         false,
-        new HashSet<>());
+        new HashSet<>(),
+        TemplateMode.HTML);
   }
 
   private Snapshot inlineSnapshotCi(String tmpl) {
@@ -76,7 +78,8 @@ class SnapshotUnitTest {
         false,
         false,
         true,
-        new HashSet<>());
+        new HashSet<>(),
+        TemplateMode.HTML);
   }
 
   private Path writeExistingSnapshot(String content) throws Exception {
@@ -149,6 +152,29 @@ class SnapshotUnitTest {
         .doesNotContain("<body>");
   }
 
+  @Test
+  void assertMatchesSnapshot_prettyPrintSkippedForNonHtmlMode() throws Exception {
+    ThymeleafRenderer textRenderer =
+        new ThymeleafRenderer("templates/", ".txt", "UTF-8", TemplateMode.TEXT);
+    var s =
+        new Snapshot(
+            textRenderer,
+            manager,
+            "TC",
+            "tmText",
+            annotation("", "Hello, [(${name})]!", false),
+            true, // prettyPrint=true but mode is TEXT, so it should be ignored
+            false,
+            false,
+            new HashSet<>(),
+            TemplateMode.TEXT);
+    s.setVariable("name", "World").assertMatchesSnapshot();
+
+    Path snapshotPath = tempDir.resolve("TC/tmText.txt");
+    assertThat(snapshotPath).exists();
+    assertThat(Files.readString(snapshotPath)).contains("Hello, World!");
+  }
+
   // --- assertMatchesSnapshot: update mode ---
 
   @Test
@@ -175,7 +201,8 @@ class SnapshotUnitTest {
             false,
             false,
             false,
-            new HashSet<>());
+            new HashSet<>(),
+            TemplateMode.HTML);
     s.setVariable("msg", "new").assertMatchesSnapshot();
 
     assertThat(Files.readString(snapshotPath)).contains("new");
@@ -194,6 +221,51 @@ class SnapshotUnitTest {
         .isInstanceOf(SnapshotMismatchException.class);
   }
 
+  // --- assertMatchesSnapshot: non-HTML modes use correct extension ---
+
+  @Test
+  void assertMatchesSnapshot_xmlModeWritesXmlFile() throws Exception {
+    ThymeleafRenderer xmlRenderer =
+        new ThymeleafRenderer("templates/", ".xml", "UTF-8", TemplateMode.XML);
+    var s =
+        new Snapshot(
+            xmlRenderer,
+            manager,
+            "TC",
+            "tmXml",
+            annotation("", "<item th:text=\"${val}\">x</item>", false),
+            false,
+            false,
+            false,
+            new HashSet<>(),
+            TemplateMode.XML);
+    s.setVariable("val", "hello").assertMatchesSnapshot();
+
+    assertThat(tempDir.resolve("TC/tmXml.xml")).exists();
+  }
+
+  @Test
+  void assertMatchesSnapshot_textModeWritesTxtFile() throws Exception {
+    ThymeleafRenderer textRenderer =
+        new ThymeleafRenderer("templates/", ".txt", "UTF-8", TemplateMode.TEXT);
+    var s =
+        new Snapshot(
+            textRenderer,
+            manager,
+            "TC",
+            "tmTxt",
+            annotation("", "Hello, [(${name})]!", false),
+            false,
+            false,
+            false,
+            new HashSet<>(),
+            TemplateMode.TEXT);
+    s.setVariable("name", "World").assertMatchesSnapshot();
+
+    assertThat(tempDir.resolve("TC/tmTxt.txt")).exists();
+    assertThat(Files.readString(tempDir.resolve("TC/tmTxt.txt"))).contains("Hello, World!");
+  }
+
   // --- assertMatchesSnapshot: accessedPaths tracking ---
 
   @Test
@@ -209,7 +281,8 @@ class SnapshotUnitTest {
             false,
             false,
             false,
-            accessed);
+            accessed,
+            TemplateMode.HTML);
 
     s.assertMatchesSnapshot();
 
@@ -229,7 +302,8 @@ class SnapshotUnitTest {
             false,
             false,
             false,
-            accessed);
+            accessed,
+            TemplateMode.HTML);
 
     s.assertMatchesSnapshot("v1");
     s.assertMatchesSnapshot("v2");
@@ -252,7 +326,8 @@ class SnapshotUnitTest {
             false,
             false,
             false,
-            accessed);
+            accessed,
+            TemplateMode.HTML);
 
     base.setVariable("x", "a").assertMatchesSnapshot("a");
     base.setVariable("x", "b").assertMatchesSnapshot("b");
@@ -264,7 +339,7 @@ class SnapshotUnitTest {
   void assertMatchesSnapshot_exceptionCarriesNormalizedActual() throws Exception {
     // Store a snapshot that differs from what the template renders.
     // Write with an explicit trailing newline to simulate an editor-added newline
-    // so that reading it back normalizes to no trailing newline.
+    // so that comparison normalizes both sides before producing the diff.
     writeExistingSnapshot("<p>old</p>\n");
 
     var s = inlineSnapshot("<p th:text=\"${msg}\">x</p>", false, false);
@@ -299,7 +374,8 @@ class SnapshotUnitTest {
                     false,
                     false,
                     false,
-                    new HashSet<>()))
+                    new HashSet<>(),
+                    TemplateMode.HTML))
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -316,7 +392,8 @@ class SnapshotUnitTest {
                     false,
                     false,
                     false,
-                    new HashSet<>()))
+                    new HashSet<>(),
+                    TemplateMode.HTML))
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -333,7 +410,8 @@ class SnapshotUnitTest {
                     false,
                     false,
                     false,
-                    new HashSet<>()))
+                    new HashSet<>(),
+                    TemplateMode.HTML))
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -350,7 +428,8 @@ class SnapshotUnitTest {
                     false,
                     false,
                     false,
-                    new HashSet<>()))
+                    new HashSet<>(),
+                    TemplateMode.HTML))
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -385,7 +464,8 @@ class SnapshotUnitTest {
             false,
             true,
             true,
-            new HashSet<>());
+            new HashSet<>(),
+            TemplateMode.HTML);
 
     s.assertMatchesSnapshot();
 

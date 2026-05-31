@@ -7,6 +7,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.thymeleaf.templatemode.TemplateMode;
 
 /**
  * The main user-facing API for Thymeleaf snapshot testing.
@@ -81,6 +82,7 @@ public final class Snapshot {
   private final boolean shouldUpdate;
   private final boolean ciMode;
   private final Set<Path> accessedPaths;
+  private final TemplateMode templateMode;
 
   private final Map<String, Object> variables;
   private final Locale locale;
@@ -100,6 +102,7 @@ public final class Snapshot {
    * @param accessedPaths shared mutable set that tracks every snapshot path resolved in this test
    *     class run; used by {@link ThymeleafSnapshotExtension} to detect orphaned snapshot files
    *     after all tests complete
+   * @param templateMode the Thymeleaf template mode
    */
   Snapshot(
       ThymeleafRenderer renderer,
@@ -110,7 +113,8 @@ public final class Snapshot {
       boolean prettyPrint,
       boolean globalUpdate,
       boolean ciMode,
-      Set<Path> accessedPaths) {
+      Set<Path> accessedPaths,
+      TemplateMode templateMode) {
     this.renderer = Objects.requireNonNull(renderer, "renderer must not be null");
     this.snapshotManager =
         Objects.requireNonNull(snapshotManager, "snapshotManager must not be null");
@@ -121,6 +125,7 @@ public final class Snapshot {
     this.shouldUpdate = globalUpdate || annotation.update();
     this.ciMode = ciMode;
     this.accessedPaths = Objects.requireNonNull(accessedPaths, "accessedPaths must not be null");
+    this.templateMode = Objects.requireNonNull(templateMode, "templateMode must not be null");
     this.variables = Collections.emptyMap();
     this.locale = Locale.ROOT;
 
@@ -137,6 +142,7 @@ public final class Snapshot {
     this.shouldUpdate = base.shouldUpdate;
     this.ciMode = base.ciMode;
     this.accessedPaths = base.accessedPaths;
+    this.templateMode = base.templateMode;
     this.variables = Collections.unmodifiableMap(variables);
     this.locale = locale;
   }
@@ -230,12 +236,14 @@ public final class Snapshot {
   public void assertMatchesSnapshot(String snapshotName) {
     String rendered = renderTemplate();
 
-    if (prettyPrint) {
+    if (prettyPrint && templateMode == TemplateMode.HTML) {
       rendered = HtmlFormatter.prettyPrint(rendered);
     }
 
+    String fileExtension = ResolvedConfig.extensionForMode(templateMode);
     Path snapshotPath =
-        snapshotManager.resolveSnapshotPath(testClassName, testMethodName, snapshotName);
+        snapshotManager.resolveSnapshotPath(
+            testClassName, testMethodName, snapshotName, fileExtension);
     accessedPaths.add(snapshotPath);
 
     boolean exists = snapshotManager.snapshotExists(snapshotPath);
@@ -252,9 +260,9 @@ public final class Snapshot {
     }
 
     String expected = snapshotManager.readSnapshot(snapshotPath);
-    String normalizedRendered = SnapshotManager.normalize(rendered);
-    if (!expected.equals(normalizedRendered)) {
-      throw new SnapshotMismatchException(snapshotPath, expected, normalizedRendered);
+    if (!snapshotManager.matches(expected, rendered)) {
+      throw new SnapshotMismatchException(
+          snapshotPath, SnapshotManager.normalize(expected), SnapshotManager.normalize(rendered));
     }
   }
 

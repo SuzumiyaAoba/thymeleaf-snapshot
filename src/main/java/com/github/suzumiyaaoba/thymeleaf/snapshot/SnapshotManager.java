@@ -34,9 +34,10 @@ import java.util.Set;
  *
  * <p>CRLF ({@code \r\n}) sequences are normalized to LF ({@code \n}) on both read and write so that
  * snapshot files checked out with {@code core.autocrlf=true} on Windows do not cause spurious
- * mismatches. Trailing newlines are also stripped before comparison and before writing, so editors
- * configured to append a final newline (VS Code, Vim {@code fixendofline}, Prettier, etc.) do not
- * cause spurious mismatches.
+ * mismatches. Trailing newlines are preserved in stored files but are stripped during comparison
+ * only, so editors configured to append a final newline (VS Code, Vim {@code fixendofline},
+ * Prettier, etc.) do not cause spurious mismatches. Note: trailing-newline-only differences in
+ * template output are intentionally not detected by snapshot comparison.
  */
 public final class SnapshotManager {
 
@@ -71,7 +72,7 @@ public final class SnapshotManager {
   }
 
   /**
-   * Resolves the snapshot file path for a given test.
+   * Resolves the snapshot file path for a given test using the default {@code .html} extension.
    *
    * @param testClassName the fully qualified test class name
    * @param testMethodName the test method name
@@ -82,14 +83,35 @@ public final class SnapshotManager {
    */
   public Path resolveSnapshotPath(
       String testClassName, String testMethodName, String snapshotName) {
+    return resolveSnapshotPath(testClassName, testMethodName, snapshotName, ".html");
+  }
+
+  /**
+   * Resolves the snapshot file path for a given test with an explicit file extension.
+   *
+   * @param testClassName the fully qualified test class name
+   * @param testMethodName the test method name
+   * @param snapshotName optional snapshot name (for multiple snapshots per test), may be {@code
+   *     null}
+   * @param fileExtension file extension including the leading dot (e.g. {@code ".xml"}); must match
+   *     {@code \.[a-zA-Z0-9_]+}
+   * @return the path to the snapshot file
+   * @throws NullPointerException if testClassName, testMethodName, or fileExtension is null
+   * @throws IllegalArgumentException if fileExtension contains path-separator or other unsafe
+   *     characters
+   */
+  public Path resolveSnapshotPath(
+      String testClassName, String testMethodName, String snapshotName, String fileExtension) {
     Objects.requireNonNull(testClassName, "testClassName must not be null");
     Objects.requireNonNull(testMethodName, "testMethodName must not be null");
+    Objects.requireNonNull(fileExtension, "fileExtension must not be null");
+    validateFileExtension(fileExtension);
 
     String fileName;
     if (snapshotName != null && !snapshotName.isEmpty()) {
-      fileName = testMethodName + "[" + sanitizeSnapshotName(snapshotName) + "].html";
+      fileName = testMethodName + "[" + sanitizeSnapshotName(snapshotName) + "]" + fileExtension;
     } else {
-      fileName = testMethodName + ".html";
+      fileName = testMethodName + fileExtension;
     }
     return snapshotBaseDir.resolve(testClassName).resolve(fileName);
   }
@@ -107,18 +129,20 @@ public final class SnapshotManager {
   }
 
   /**
-   * Reads the content of a stored snapshot file, normalizing line endings and stripping trailing
-   * newlines.
+   * Reads the content of a stored snapshot file, normalizing CRLF line endings to LF.
+   *
+   * <p>Trailing newlines are preserved in the returned string; they are handled during comparison
+   * only (see {@link #matches(String, String)}).
    *
    * @param snapshotPath the path to the snapshot file
-   * @return the snapshot content with CRLF normalized to LF and trailing newlines removed
+   * @return the snapshot content with CRLF normalized to LF
    * @throws NullPointerException if snapshotPath is null
    * @throws UncheckedIOException if the file cannot be read
    */
   public String readSnapshot(Path snapshotPath) {
     Objects.requireNonNull(snapshotPath, "snapshotPath must not be null");
     try {
-      return normalize(Files.readString(snapshotPath, StandardCharsets.UTF_8));
+      return normalizeCrlf(Files.readString(snapshotPath, StandardCharsets.UTF_8));
     } catch (IOException e) {
       throw new UncheckedIOException("Failed to read snapshot: " + snapshotPath, e);
     }
@@ -127,8 +151,8 @@ public final class SnapshotManager {
   /**
    * Writes content to a snapshot file, creating parent directories if necessary.
    *
-   * <p>CRLF sequences are normalized to LF and trailing newlines are stripped before writing to
-   * ensure files are stored in a canonical form regardless of OS or editor settings.
+   * <p>CRLF sequences are normalized to LF before writing. Trailing newlines are preserved so that
+   * the stored file accurately reflects the rendered output.
    *
    * @param snapshotPath the path to the snapshot file
    * @param content the content to write
@@ -140,15 +164,19 @@ public final class SnapshotManager {
     Objects.requireNonNull(content, "content must not be null");
     try {
       Files.createDirectories(snapshotPath.getParent());
-      Files.writeString(snapshotPath, normalize(content), StandardCharsets.UTF_8);
+      Files.writeString(snapshotPath, normalizeCrlf(content), StandardCharsets.UTF_8);
     } catch (IOException e) {
       throw new UncheckedIOException("Failed to write snapshot: " + snapshotPath, e);
     }
   }
 
   /**
-   * Compares two content strings for equality after normalizing line endings and trailing newlines
-   * on both sides.
+   * Compares two content strings for equality after normalizing line endings and stripping trailing
+   * newlines on both sides.
+   *
+   * <p>Trailing newlines are stripped only during comparison so that editors configured to append a
+   * final newline do not cause spurious mismatches. Trailing-newline-only differences in template
+   * output are intentionally not detected.
    *
    * @param expected the expected content
    * @param actual the actual content
@@ -156,6 +184,24 @@ public final class SnapshotManager {
    */
   public boolean matches(String expected, String actual) {
     return Objects.equals(normalize(expected), normalize(actual));
+  }
+
+  /** Full normalization: CRLF → LF, then strip trailing newlines. Used only for comparison. */
+  static String normalize(String s) {
+    return stripTrailingNewlines(normalizeCrlf(s));
+  }
+
+  /** Normalizes CRLF to LF only; preserves trailing newlines. Used for read/write. */
+  private static String normalizeCrlf(String s) {
+    return s.replace("\r\n", "\n");
+  }
+
+  private static String stripTrailingNewlines(String s) {
+    int end = s.length();
+    while (end > 0 && (s.charAt(end - 1) == '\n' || s.charAt(end - 1) == '\r')) {
+      end--;
+    }
+    return end == s.length() ? s : s.substring(0, end);
   }
 
   /**
@@ -198,21 +244,19 @@ public final class SnapshotManager {
     return snapshotBaseDir;
   }
 
-  static String normalize(String s) {
-    return stripTrailingNewlines(s.replace("\r\n", "\n"));
-  }
-
-  private static String stripTrailingNewlines(String s) {
-    int end = s.length();
-    while (end > 0 && (s.charAt(end - 1) == '\n' || s.charAt(end - 1) == '\r')) {
-      end--;
-    }
-    return end == s.length() ? s : s.substring(0, end);
-  }
-
   private static String sanitizeSnapshotName(String snapshotName) {
     String sanitized = snapshotName.replaceAll(ILLEGAL_FILENAME_CHARS, "_").trim();
     return sanitized.isEmpty() ? "snapshot" : sanitized;
+  }
+
+  private static void validateFileExtension(String fileExtension) {
+    if (!fileExtension.matches("\\.[\\w]+")) {
+      throw new IllegalArgumentException(
+          "fileExtension must be a dot followed by one or more alphanumeric characters "
+              + "(e.g. \".html\", \".xml\"): \""
+              + fileExtension
+              + "\"");
+    }
   }
 
   private static Path resolveSnapshotBaseDir(String snapshotDirName) {

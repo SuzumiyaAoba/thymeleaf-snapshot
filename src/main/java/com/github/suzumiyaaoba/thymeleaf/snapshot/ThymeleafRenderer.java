@@ -20,15 +20,28 @@ public final class ThymeleafRenderer {
   private final TemplateEngine inlineEngine;
 
   /**
-   * Creates a new renderer with the specified configuration.
+   * Creates a new renderer with the specified configuration and template mode.
+   *
+   * @param prefix template prefix for classpath resolution
+   * @param suffix template suffix for classpath resolution
+   * @param characterEncoding character encoding for template processing
+   * @param templateMode Thymeleaf template mode
+   */
+  public ThymeleafRenderer(
+      String prefix, String suffix, String characterEncoding, TemplateMode templateMode) {
+    this.classpathEngine = createClasspathEngine(prefix, suffix, characterEncoding, templateMode);
+    this.inlineEngine = createInlineEngine(templateMode);
+  }
+
+  /**
+   * Creates a new renderer defaulting to {@link TemplateMode#HTML}.
    *
    * @param prefix template prefix for classpath resolution
    * @param suffix template suffix for classpath resolution
    * @param characterEncoding character encoding for template processing
    */
   public ThymeleafRenderer(String prefix, String suffix, String characterEncoding) {
-    this.classpathEngine = createClasspathEngine(prefix, suffix, characterEncoding);
-    this.inlineEngine = createInlineEngine();
+    this(prefix, suffix, characterEncoding, TemplateMode.HTML);
   }
 
   /**
@@ -37,7 +50,7 @@ public final class ThymeleafRenderer {
    * @param templateName the template name (without prefix/suffix)
    * @param variables the template variables
    * @param locale the locale for rendering
-   * @return the rendered HTML string
+   * @return the rendered string
    */
   public String render(String templateName, Map<String, Object> variables, Locale locale) {
     Context context = new Context(locale);
@@ -51,7 +64,7 @@ public final class ThymeleafRenderer {
    * @param templateContent the template string
    * @param variables the template variables
    * @param locale the locale for rendering
-   * @return the rendered HTML string
+   * @return the rendered string
    */
   public String renderInline(String templateContent, Map<String, Object> variables, Locale locale) {
     Context context = new Context(locale);
@@ -60,11 +73,11 @@ public final class ThymeleafRenderer {
   }
 
   private static TemplateEngine createClasspathEngine(
-      String prefix, String suffix, String characterEncoding) {
+      String prefix, String suffix, String characterEncoding, TemplateMode templateMode) {
     ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver();
     resolver.setPrefix(prefix);
     resolver.setSuffix(suffix);
-    resolver.setTemplateMode(TemplateMode.HTML);
+    resolver.setTemplateMode(templateMode);
     resolver.setCharacterEncoding(characterEncoding);
     resolver.setCacheable(false); // Disable caching for tests
 
@@ -73,9 +86,9 @@ public final class ThymeleafRenderer {
     return engine;
   }
 
-  private static TemplateEngine createInlineEngine() {
+  private static TemplateEngine createInlineEngine(TemplateMode templateMode) {
     StringTemplateResolver resolver = new StringTemplateResolver();
-    resolver.setTemplateMode(TemplateMode.HTML);
+    resolver.setTemplateMode(templateMode);
     resolver.setCacheable(false);
 
     TemplateEngine engine = new TemplateEngine();

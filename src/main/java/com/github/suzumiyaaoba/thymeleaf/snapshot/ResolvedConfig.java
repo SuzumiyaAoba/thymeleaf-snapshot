@@ -1,6 +1,7 @@
 package com.github.suzumiyaaoba.thymeleaf.snapshot;
 
 import java.util.Objects;
+import org.thymeleaf.templatemode.TemplateMode;
 
 /**
  * Resolved configuration values for a snapshot test, derived from the {@link SnapshotConfig}
@@ -14,7 +15,8 @@ record ResolvedConfig(
     String templateSuffix,
     String snapshotDir,
     boolean prettyPrint,
-    String characterEncoding) {
+    String characterEncoding,
+    TemplateMode templateMode) {
 
   /** Default template prefix. */
   static final String DEFAULT_TEMPLATE_PREFIX = "templates/";
@@ -33,6 +35,23 @@ record ResolvedConfig(
     Objects.requireNonNull(templateSuffix, "templateSuffix must not be null");
     Objects.requireNonNull(snapshotDir, "snapshotDir must not be null");
     Objects.requireNonNull(characterEncoding, "characterEncoding must not be null");
+    Objects.requireNonNull(templateMode, "templateMode must not be null");
+  }
+
+  /**
+   * Maps a {@link TemplateMode} to its corresponding snapshot file extension.
+   *
+   * @param mode the template mode
+   * @return file extension including the leading dot
+   */
+  static String extensionForMode(TemplateMode mode) {
+    return switch (mode) {
+      case HTML -> ".html";
+      case XML -> ".xml";
+      case TEXT, RAW -> ".txt";
+      case JAVASCRIPT -> ".js";
+      case CSS -> ".css";
+    };
   }
 
   /**
@@ -51,7 +70,8 @@ record ResolvedConfig(
         annotation.templateSuffix(),
         annotation.snapshotDir(),
         annotation.prettyPrint(),
-        annotation.characterEncoding());
+        annotation.characterEncoding(),
+        annotation.templateMode());
   }
 
   /**
@@ -65,6 +85,7 @@ record ResolvedConfig(
         DEFAULT_TEMPLATE_SUFFIX,
         DEFAULT_SNAPSHOT_DIR,
         false,
-        DEFAULT_CHARACTER_ENCODING);
+        DEFAULT_CHARACTER_ENCODING,
+        TemplateMode.HTML);
   }
 }
