@@ -19,6 +19,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class SnapshotManagerTest {
 
@@ -171,13 +172,12 @@ class SnapshotManagerTest {
         .isInstanceOf(IllegalArgumentException.class);
   }
 
-  @Test
-  void resolveSnapshotPathAcceptsStandardExtensions() {
-    for (String ext : new String[] {".html", ".xml", ".txt", ".js", ".css"}) {
-      assertThat(manager.resolveSnapshotPath("TC", "m", null, ext).toString())
-          .as("should accept extension %s", ext)
-          .endsWith("m" + ext);
-    }
+  @ParameterizedTest(name = "accepts {0}")
+  @ValueSource(strings = {".html", ".xml", ".txt", ".js", ".css"})
+  void resolveSnapshotPathAcceptsStandardExtensions(String ext) {
+    assertThat(manager.resolveSnapshotPath("TC", "m", null, ext).toString())
+        .as("should accept extension %s", ext)
+        .endsWith("m" + ext);
   }
 
   @Test
