@@ -194,7 +194,7 @@ public final class Snapshot {
    */
   public Snapshot setLocale(Locale locale) {
     Objects.requireNonNull(locale, "locale must not be null");
-    return new Snapshot(this, new LinkedHashMap<>(variables), locale);
+    return new Snapshot(this, variables, locale);
   }
 
   /**
@@ -208,7 +208,7 @@ public final class Snapshot {
    * @return a new {@code Snapshot} instance with no variables
    */
   public Snapshot clearVariables() {
-    return new Snapshot(this, new LinkedHashMap<>(), locale);
+    return new Snapshot(this, Collections.emptyMap(), locale);
   }
 
   /**

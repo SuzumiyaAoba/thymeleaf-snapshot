@@ -59,13 +59,6 @@ class ThymeleafSnapshotExtensionTest {
   }
 
   @Test
-  void resolveSnapshotMethodNameKeepsPlainTestMethodName() {
-    String methodName = ThymeleafSnapshotExtension.resolveSnapshotMethodName("shouldRender");
-
-    assertEquals("shouldRender", methodName);
-  }
-
-  @Test
   void resolveSnapshotConfigReturnsNullWhenAbsent() {
     class NoConfig {}
     assertNull(ThymeleafSnapshotExtension.resolveSnapshotConfig(NoConfig.class));

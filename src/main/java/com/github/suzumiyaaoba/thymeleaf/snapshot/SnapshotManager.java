@@ -261,8 +261,8 @@ public final class SnapshotManager {
 
   private static Path resolveSnapshotBaseDir(String snapshotDirName) {
     // Allow explicit override via system property
-    String override = System.getProperty(ThymeleafSnapshotExtension.BASE_DIR_PROPERTY);
-    if (override != null && !override.isBlank()) {
+    String override = SnapshotProperties.baseDirOverride();
+    if (override != null) {
       return Paths.get(override).resolve(snapshotDirName);
     }
 
