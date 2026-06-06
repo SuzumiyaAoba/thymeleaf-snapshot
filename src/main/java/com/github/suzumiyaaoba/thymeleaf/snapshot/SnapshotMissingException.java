@@ -6,10 +6,9 @@ import java.util.Objects;
 /**
  * Thrown when a snapshot file does not exist and CI mode is active.
  *
- * <p>In CI mode ({@code -Dsnapshot.ci=true} or the {@code CI} environment variable set to {@code
- * true}), auto-creating a missing snapshot would silently make a test pass without ever asserting
- * anything. This exception prevents that by requiring all snapshot files to be committed before the
- * test can pass.
+ * <p>In CI mode ({@code -Dsnapshot.ci=true}), auto-creating a missing snapshot would silently make
+ * a test pass without ever asserting anything. This exception prevents that by requiring all
+ * snapshot files to be committed before the test can pass.
  *
  * <p>To resolve this error, run the test locally (without CI mode) to generate the snapshot file,
  * then commit it alongside the test.

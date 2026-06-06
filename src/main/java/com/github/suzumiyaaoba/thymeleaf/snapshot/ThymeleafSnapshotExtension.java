@@ -59,7 +59,7 @@ public class ThymeleafSnapshotExtension
    * System property name to enable global snapshot update mode. Set {@code -Dsnapshot.update=true}
    * to update all snapshots.
    */
-  public static final String UPDATE_PROPERTY = "snapshot.update";
+  public static final String UPDATE_PROPERTY = SnapshotProperties.UPDATE;
 
   /**
    * System property name to override the snapshot base directory. Set {@code
@@ -68,7 +68,7 @@ public class ThymeleafSnapshotExtension
    *
    * <p>Example: {@code ./gradlew test -Dsnapshot.baseDir=/tmp/snap}
    */
-  public static final String BASE_DIR_PROPERTY = "snapshot.baseDir";
+  public static final String BASE_DIR_PROPERTY = SnapshotProperties.BASE_DIR;
 
   /**
    * System property name to enable CI mode. Set {@code -Dsnapshot.ci=true} to make the test fail
@@ -81,7 +81,7 @@ public class ThymeleafSnapshotExtension
    * ./gradlew test -Dsnapshot.ci=true
    * }</pre>
    */
-  public static final String CI_PROPERTY = "snapshot.ci";
+  public static final String CI_PROPERTY = SnapshotProperties.CI;
 
   @Override
   public void beforeEach(ExtensionContext context) {
@@ -101,10 +101,10 @@ public class ThymeleafSnapshotExtension
     SnapshotManager snapshotManager = getOrCreateSnapshotManager(context, config);
 
     // Check for global update mode
-    boolean globalUpdate = Boolean.getBoolean(UPDATE_PROPERTY);
+    boolean globalUpdate = SnapshotProperties.isUpdateEnabled();
 
     // Check for CI mode via explicit system property
-    boolean ciMode = Boolean.getBoolean(CI_PROPERTY);
+    boolean ciMode = SnapshotProperties.isCiEnabled();
 
     // Shared set that tracks every snapshot path accessed in this test class run
     Set<Path> accessedPaths = getOrCreateAccessedPaths(context);
@@ -115,7 +115,7 @@ public class ThymeleafSnapshotExtension
             renderer,
             snapshotManager,
             testClass.getName(),
-            resolveSnapshotMethodName(testMethod.getName()),
+            testMethod.getName(),
             snapshotTest,
             config.prettyPrint(),
             globalUpdate,
@@ -147,7 +147,7 @@ public class ThymeleafSnapshotExtension
       return;
     }
 
-    boolean globalUpdate = Boolean.getBoolean(UPDATE_PROPERTY);
+    boolean globalUpdate = SnapshotProperties.isUpdateEnabled();
     for (Path orphan : orphans) {
       if (globalUpdate) {
         try {
@@ -237,9 +237,5 @@ public class ThymeleafSnapshotExtension
       cls = cls.getEnclosingClass();
     }
     return null;
-  }
-
-  static String resolveSnapshotMethodName(String methodName) {
-    return methodName;
   }
 }
