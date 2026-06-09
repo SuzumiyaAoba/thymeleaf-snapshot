@@ -45,4 +45,8 @@ This is a JUnit 5 extension library for snapshot testing of Thymeleaf templates.
 - `@SnapshotTest` is a composed annotation (`@Test` + custom metadata), so methods need only one annotation.
 - Exactly one of `template` or `inlineTemplate` must be set; validated at `Snapshot` construction.
 - Default locale is `Locale.ROOT` — do not change to `Locale.getDefault()` as that makes snapshots machine-dependent.
-- `ThymeleafRenderer` and `SnapshotManager` are heavyweight; they are cached at the class-level `ExtensionContext` store to avoid re-creation per test method.
+- `ThymeleafRenderer` and `SnapshotManager` are heavyweight; they are cached at the class-level `ExtensionContext` store to avoid re-creation per test method. Cache entries are keyed by the resolved config values (`RendererKey`/`ManagerKey`), so a `@Nested` class with its own `@SnapshotConfig` gets its own instances.
+
+### Testing conventions
+
+- Use AssertJ (`org.assertj.core.api.Assertions.assertThat`) in tests, not JUnit's `Assertions`. Prefer fluent forms such as `assertThat(path).exists()` and `assertThat(path).content(UTF_8).isEqualTo(...)`.
