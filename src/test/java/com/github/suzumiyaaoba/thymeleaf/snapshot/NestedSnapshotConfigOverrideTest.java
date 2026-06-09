@@ -1,6 +1,6 @@
 package com.github.suzumiyaaoba.thymeleaf.snapshot;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -49,7 +49,7 @@ class NestedSnapshotConfigOverrideTest {
   class WithOverriddenConfig {
 
     @SnapshotTest(inlineTemplate = "<p th:text=\"${m}\">x</p>")
-    void nestedUsesItsOwnConfig(Snapshot snapshot) throws IOException {
+    void nestedUsesItsOwnConfig(Snapshot snapshot) {
       snapshot.setVariable("m", "inner").assertMatchesSnapshot();
 
       Path expected =
@@ -60,11 +60,11 @@ class NestedSnapshotConfigOverrideTest {
               NESTED_SNAPSHOT_DIR,
               WithOverriddenConfig.class.getName(),
               "nestedUsesItsOwnConfig.txt");
-      assertTrue(
-          Files.exists(expected),
-          "snapshot must be stored under the nested class's snapshotDir: " + expected);
+      assertThat(expected)
+          .as("snapshot must be stored under the nested class's snapshotDir")
+          .exists();
       // TEXT mode leaves markup untouched; the HTML-mode renderer would produce <p>inner</p>
-      assertEquals("<p th:text=\"${m}\">x</p>", Files.readString(expected, StandardCharsets.UTF_8));
+      assertThat(expected).content(StandardCharsets.UTF_8).isEqualTo("<p th:text=\"${m}\">x</p>");
     }
   }
 
