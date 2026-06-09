@@ -13,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
+import org.thymeleaf.templatemode.TemplateMode;
 
 /**
  * JUnit 5 extension that integrates Thymeleaf snapshot testing.
@@ -27,7 +28,9 @@ import org.junit.jupiter.api.extension.ParameterResolver;
  * </ul>
  *
  * <p>The {@link ThymeleafRenderer} and {@link SnapshotManager} are cached at the class level to
- * avoid re-creating heavyweight objects for each test method.
+ * avoid re-creating heavyweight objects for each test method. Cache entries are keyed by the
+ * resolved configuration values, so a {@code @Nested} class that declares its own {@link
+ * SnapshotConfig} gets components built from that config rather than reusing the enclosing class's.
  *
  * <h2>Usage</h2>
  *
@@ -51,9 +54,37 @@ public class ThymeleafSnapshotExtension
       ExtensionContext.Namespace.create(ThymeleafSnapshotExtension.class);
 
   private static final String SNAPSHOT_KEY = "snapshot";
-  private static final String RENDERER_KEY = "renderer";
-  private static final String MANAGER_KEY = "snapshotManager";
   private static final String ACCESSED_PATHS_KEY = "accessedPaths";
+
+  /**
+   * Store key for the cached {@link ThymeleafRenderer}. The key carries every config value the
+   * renderer is built from, so a {@code @Nested} class that overrides {@link SnapshotConfig} gets
+   * its own renderer instead of inheriting the enclosing class's cached one via the store's
+   * ancestor lookup, while classes sharing the same config still share one instance.
+   */
+  private record RendererKey(
+      String templatePrefix,
+      String templateSuffix,
+      String characterEncoding,
+      TemplateMode templateMode) {
+    static RendererKey of(ResolvedConfig config) {
+      return new RendererKey(
+          config.templatePrefix(),
+          config.templateSuffix(),
+          config.characterEncoding(),
+          config.templateMode());
+    }
+  }
+
+  /**
+   * Store key for the cached {@link SnapshotManager}; keyed by snapshot directory for the same
+   * reason as {@link RendererKey}.
+   */
+  private record ManagerKey(String snapshotDir) {
+    static ManagerKey of(ResolvedConfig config) {
+      return new ManagerKey(config.snapshotDir());
+    }
+  }
 
   /**
    * System property name to enable global snapshot update mode. Set {@code -Dsnapshot.update=true}
@@ -130,7 +161,9 @@ public class ThymeleafSnapshotExtension
   @Override
   public void afterAll(ExtensionContext context) {
     ExtensionContext.Store classStore = context.getStore(NAMESPACE);
-    SnapshotManager manager = classStore.get(MANAGER_KEY, SnapshotManager.class);
+    ResolvedConfig config =
+        ResolvedConfig.from(resolveSnapshotConfig(context.getRequiredTestClass()));
+    SnapshotManager manager = classStore.get(ManagerKey.of(config), SnapshotManager.class);
     if (manager == null) {
       return;
     }
@@ -198,13 +231,13 @@ public class ThymeleafSnapshotExtension
   private ThymeleafRenderer getOrCreateRenderer(ExtensionContext context, ResolvedConfig config) {
     ExtensionContext.Store classStore = getClassStore(context);
     return classStore.getOrComputeIfAbsent(
-        RENDERER_KEY,
+        RendererKey.of(config),
         key ->
             new ThymeleafRenderer(
-                config.templatePrefix(),
-                config.templateSuffix(),
-                config.characterEncoding(),
-                config.templateMode()),
+                key.templatePrefix(),
+                key.templateSuffix(),
+                key.characterEncoding(),
+                key.templateMode()),
         ThymeleafRenderer.class);
   }
 
@@ -213,7 +246,9 @@ public class ThymeleafSnapshotExtension
       ExtensionContext context, ResolvedConfig config) {
     ExtensionContext.Store classStore = getClassStore(context);
     return classStore.getOrComputeIfAbsent(
-        MANAGER_KEY, key -> new SnapshotManager(config.snapshotDir()), SnapshotManager.class);
+        ManagerKey.of(config),
+        key -> new SnapshotManager(key.snapshotDir()),
+        SnapshotManager.class);
   }
 
   /** Gets (or lazily creates) the shared set of accessed snapshot paths for this test class. */
