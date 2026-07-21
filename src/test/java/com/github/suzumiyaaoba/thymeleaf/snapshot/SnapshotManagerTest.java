@@ -4,17 +4,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -259,5 +264,30 @@ class SnapshotManagerTest {
     List<Path> orphans = manager.findOrphanedSnapshots("MyTest", Set.of());
 
     assertThat(orphans).containsExactlyInAnyOrder(a, b);
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void findOrphanedSnapshots_logsAndReturnsEmptyWhenWalkFails() throws Exception {
+    Path a = manager.resolveSnapshotPath("MyTest", "methodA", null);
+    manager.writeSnapshot(a, "a");
+    Path classDir = a.getParent();
+
+    Files.setPosixFilePermissions(classDir, PosixFilePermissions.fromString("---------"));
+    PrintStream originalErr = System.err;
+    ByteArrayOutputStream capturedErr = new ByteArrayOutputStream();
+    try {
+      System.setErr(new PrintStream(capturedErr, true, StandardCharsets.UTF_8));
+
+      List<Path> orphans = manager.findOrphanedSnapshots("MyTest", Set.of());
+
+      assertThat(orphans).isEmpty();
+    } finally {
+      System.setErr(originalErr);
+      Files.setPosixFilePermissions(classDir, PosixFilePermissions.fromString("rwxr-xr-x"));
+    }
+    assertThat(capturedErr.toString(StandardCharsets.UTF_8))
+        .contains("[thymeleaf-snapshot]")
+        .contains("Failed to scan for orphaned snapshots");
   }
 }
