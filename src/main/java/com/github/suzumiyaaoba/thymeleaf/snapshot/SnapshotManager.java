@@ -228,7 +228,12 @@ public final class SnapshotManager {
           .filter(Files::isRegularFile)
           .filter(p -> !accessedPaths.contains(p))
           .forEach(orphans::add);
-    } catch (IOException e) {
+    } catch (IOException | UncheckedIOException e) {
+      System.err.println(
+          "[thymeleaf-snapshot] Failed to scan for orphaned snapshots under "
+              + classDir
+              + ": "
+              + e.getMessage());
       return Collections.emptyList();
     }
     Collections.sort(orphans);
