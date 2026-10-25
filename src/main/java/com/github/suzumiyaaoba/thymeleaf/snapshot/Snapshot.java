@@ -130,6 +130,7 @@ public final class Snapshot {
     this.locale = Locale.ROOT;
 
     validateAnnotation();
+    validateUpdateMode(globalUpdate);
   }
 
   private Snapshot(Snapshot base, Map<String, Object> variables, Locale locale) {
@@ -248,7 +249,7 @@ public final class Snapshot {
 
     boolean exists = snapshotManager.snapshotExists(snapshotPath);
     if (!exists) {
-      if (ciMode && !shouldUpdate) {
+      if (ciMode) {
         throw new SnapshotMissingException(snapshotPath);
       }
       snapshotManager.writeSnapshot(snapshotPath, rendered);
@@ -289,6 +290,25 @@ public final class Snapshot {
     if (!hasTemplate && !hasInlineTemplate) {
       throw new IllegalStateException(
           "@SnapshotTest requires either 'template' or 'inlineTemplate' to be specified.");
+    }
+  }
+
+  private void validateUpdateMode(boolean globalUpdate) {
+    if (!ciMode) {
+      return;
+    }
+    if (globalUpdate) {
+      throw new IllegalStateException(
+          "snapshot.ci=true and snapshot.update=true are mutually exclusive. "
+              + "Disable snapshot.update when running in CI mode.");
+    }
+    if (annotation.update()) {
+      throw new IllegalStateException(
+          "@SnapshotTest(update = true) is not allowed when snapshot.ci=true: "
+              + testClassName
+              + "#"
+              + testMethodName
+              + ". Remove update = true before running in CI mode.");
     }
   }
 }

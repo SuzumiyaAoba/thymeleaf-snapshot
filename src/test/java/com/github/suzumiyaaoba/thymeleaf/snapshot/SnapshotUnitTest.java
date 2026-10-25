@@ -453,22 +453,11 @@ class SnapshotUnitTest {
   }
 
   @Test
-  void assertMatchesSnapshot_createsSnapshotWhenCiModeAndUpdateModeActive() throws Exception {
-    var s =
-        new Snapshot(
-            renderer,
-            manager,
-            "TC",
-            "tm",
-            annotation("", "<p>hello</p>", false),
-            false,
-            true,
-            true,
-            new HashSet<>(),
-            TemplateMode.HTML);
+  void assertMatchesSnapshot_failsInCiModeWithoutChangingMismatchedSnapshot() throws Exception {
+    Path snapshotPath = writeExistingSnapshot("<p>committed</p>");
 
-    s.assertMatchesSnapshot();
-
-    assertThat(Files.exists(tempDir.resolve("TC/tm.html"))).isTrue();
+    assertThatThrownBy(() -> inlineSnapshotCi("<p>changed</p>").assertMatchesSnapshot())
+        .isInstanceOf(SnapshotMismatchException.class);
+    assertThat(snapshotPath).content().isEqualTo("<p>committed</p>");
   }
 }

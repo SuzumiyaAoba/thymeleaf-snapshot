@@ -8,6 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build and test
 ./gradlew test
 
+# Verify the minimum supported JUnit version (the default test suite uses 6.0.0)
+./gradlew test build -PtestJunitVersion=5.11.4
+
 # Single test class
 ./gradlew test --tests "com.github.suzumiyaaoba.thymeleaf.snapshot.SnapshotMismatchExceptionTest"
 
@@ -26,9 +29,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture
 
-This is a JUnit 5 extension library for snapshot testing of Thymeleaf templates. The flow is:
+This is a JUnit Jupiter extension library for snapshot testing of Thymeleaf templates. It requires Java 21+ and JUnit Jupiter 5.11.4+, with compatibility tested on 5.11.4 and 6.0.0. The published API dependency is `junit-jupiter-api:5.11.4`; the JUnit BOM is test-only so consumers retain control of their JUnit generation. The sample remains on JUnit 5.11.4. The flow is:
 
-1. **`ThymeleafSnapshotExtension`** (JUnit 5 `BeforeEachCallback` + `ParameterResolver`) — entry point. Reads `@SnapshotConfig` from the test class, constructs `ThymeleafRenderer` and `SnapshotManager` (cached at class level in the JUnit `ExtensionContext` store), then creates a per-test `Snapshot` instance and injects it into the test method parameter.
+1. **`ThymeleafSnapshotExtension`** (JUnit Jupiter lifecycle callbacks + `ParameterResolver`) — entry point. Reads `@SnapshotConfig` from the test class, constructs `ThymeleafRenderer` and `SnapshotManager` (cached at class level in the JUnit `ExtensionContext` store), then creates a per-test `Snapshot` instance and injects it into the test method parameter.
 
 2. **`Snapshot`** — user-facing API. Holds template variables and locale, calls `ThymeleafRenderer` to render, optionally pretty-prints via `HtmlFormatter`, then delegates to `SnapshotManager` for file comparison or creation.
 

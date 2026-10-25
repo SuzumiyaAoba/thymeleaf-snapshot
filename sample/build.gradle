@@ -15,7 +15,9 @@ java {
 
 dependencies {
   testImplementation project(':')
-  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.11.4'
+  // A consumer owns its JUnit version independently of the library's test-suite BOM.
+  testImplementation platform('org.junit:junit-bom:5.11.4')
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine'
   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

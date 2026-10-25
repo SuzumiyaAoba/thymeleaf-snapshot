@@ -18,7 +18,7 @@ import org.junit.jupiter.api.extension.ParameterResolver;
 import org.thymeleaf.templatemode.TemplateMode;
 
 /**
- * JUnit 5 extension that integrates Thymeleaf snapshot testing.
+ * JUnit Jupiter extension that integrates Thymeleaf snapshot testing (JUnit 5.11.4+ and 6).
  *
  * <p>This extension handles the lifecycle of snapshot tests:
  *
@@ -113,7 +113,9 @@ public class ThymeleafSnapshotExtension
    * (instead of auto-creating the file) when a snapshot file does not exist.
    *
    * <p>This prevents a test from silently passing on CI when its snapshot file was not committed.
-   * Add this flag to your CI build command to enforce that all snapshots are committed:
+   * CI mode rejects both {@code -Dsnapshot.update=true} and {@code @SnapshotTest(update = true)}
+   * and never creates, overwrites, or deletes snapshot files. Add this flag to your CI build
+   * command to enforce that all snapshots are committed:
    *
    * <pre>{@code
    * ./gradlew test -Dsnapshot.ci=true
@@ -197,6 +199,8 @@ public class ThymeleafSnapshotExtension
 
     Class<?> testClass = context.getRequiredTestClass();
     String testClassName = testClass.getName();
+    boolean globalUpdate =
+        SnapshotProperties.isUpdateEnabled() && !SnapshotProperties.isCiEnabled();
 
     @SuppressWarnings("unchecked")
     Set<String> completedMethods = (Set<String>) classStore.get(COMPLETED_METHODS_KEY);
@@ -204,7 +208,7 @@ public class ThymeleafSnapshotExtension
         || !completedMethods.containsAll(declaredSnapshotTestMethods(testClass))) {
       // Partial run: a --tests filter, @Disabled, an aborted assumption, or a failure means
       // some snapshots were legitimately not accessed — they must not be treated as orphans.
-      if (SnapshotProperties.isUpdateEnabled()) {
+      if (globalUpdate) {
         System.err.println(
             "[thymeleaf-snapshot] Skipping orphaned-snapshot cleanup for "
                 + testClassName
@@ -218,7 +222,6 @@ public class ThymeleafSnapshotExtension
       return;
     }
 
-    boolean globalUpdate = SnapshotProperties.isUpdateEnabled();
     for (Path orphan : orphans) {
       if (globalUpdate) {
         try {
