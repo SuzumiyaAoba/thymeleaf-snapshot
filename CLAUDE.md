@@ -35,13 +35,15 @@ This is a JUnit Jupiter extension library for snapshot testing of Thymeleaf temp
 
 2. **`Snapshot`** — user-facing API. Holds template variables and locale, calls `ThymeleafRenderer` to render, optionally pretty-prints via `HtmlFormatter`, then delegates to `SnapshotManager` for file comparison or creation.
 
-3. **`SnapshotManager`** — handles all file I/O. On construction with a `String` dir name, auto-detects the project root by walking up from the classloader resource URL looking for `build.gradle`/`pom.xml`. Overridable via `-Dsnapshot.baseDir=...`. Snapshot files live at `src/test/resources/__snapshots__/<FQCN>/<method>[<name>].html`.
+3. **`SnapshotManager`** — handles all file I/O, including reporting or deleting orphaned snapshots after a complete test run. On construction with a `String` dir name, auto-detects the project root by walking up from the classloader resource URL looking for `build.gradle`/`pom.xml`. Overridable via `-Dsnapshot.baseDir=...`. Snapshot files live at `src/test/resources/__snapshots__/<FQCN>/<method>[<name>].html`.
 
 4. **`ThymeleafRenderer`** — wraps two `TemplateEngine` instances: one with `ClassLoaderTemplateResolver` (for `@SnapshotTest(template=...)`) and one with `StringTemplateResolver` (for `@SnapshotTest(inlineTemplate=...)`). Both have caching disabled.
 
 5. **`SnapshotMismatchException`** — extends `AssertionError` (JUnit recognises it as a test failure). Uses `java-diff-utils` (`DiffUtils.diff` + `UnifiedDiffUtils.generateUnifiedDiff`) to produce a standard unified diff with `@@ -L,C +L,C @@` hunk headers.
 
 6. **`ResolvedConfig`** — record that merges `@SnapshotConfig` annotation values with defaults. Created fresh per-test-class; passed to both `ThymeleafRenderer` and `SnapshotManager`.
+
+7. **`SnapshotTestRun`** — tracks accessed snapshot paths and successfully completed methods for one test class, including inherited methods. Stored under the test class as a typed key so nested classes have independent run state. Incomplete runs skip orphan handling; CI mode always prohibits deletion.
 
 ### Key design constraints
 
