@@ -1,13 +1,6 @@
 package com.github.suzumiyaaoba.thymeleaf.snapshot;
 
-import java.io.IOException;
 import java.lang.reflect.Method;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -18,7 +11,7 @@ import org.junit.jupiter.api.extension.ParameterResolver;
 import org.thymeleaf.templatemode.TemplateMode;
 
 /**
- * JUnit 5 extension that integrates Thymeleaf snapshot testing.
+ * JUnit Jupiter extension that integrates Thymeleaf snapshot testing (JUnit 5.11.4+ and 6).
  *
  * <p>This extension handles the lifecycle of snapshot tests:
  *
@@ -60,8 +53,6 @@ public class ThymeleafSnapshotExtension
       ExtensionContext.Namespace.create(ThymeleafSnapshotExtension.class);
 
   private static final String SNAPSHOT_KEY = "snapshot";
-  private static final String ACCESSED_PATHS_KEY = "accessedPaths";
-  private static final String COMPLETED_METHODS_KEY = "completedMethods";
 
   /**
    * Store key for the cached {@link ThymeleafRenderer}. The key carries every config value the
@@ -113,7 +104,9 @@ public class ThymeleafSnapshotExtension
    * (instead of auto-creating the file) when a snapshot file does not exist.
    *
    * <p>This prevents a test from silently passing on CI when its snapshot file was not committed.
-   * Add this flag to your CI build command to enforce that all snapshots are committed:
+   * CI mode rejects both {@code -Dsnapshot.update=true} and {@code @SnapshotTest(update = true)}
+   * and never creates, overwrites, or deletes snapshot files. Add this flag to your CI build
+   * command to enforce that all snapshots are committed:
    *
    * <pre>{@code
    * ./gradlew test -Dsnapshot.ci=true
@@ -144,8 +137,7 @@ public class ThymeleafSnapshotExtension
     // Check for CI mode via explicit system property
     boolean ciMode = SnapshotProperties.isCiEnabled();
 
-    // Shared set that tracks every snapshot path accessed in this test class run
-    Set<Path> accessedPaths = getOrCreateAccessedPaths(context);
+    SnapshotTestRun testRun = getOrCreateTestRun(context);
 
     // Create per-test Snapshot instance
     Snapshot snapshot =
@@ -158,7 +150,7 @@ public class ThymeleafSnapshotExtension
             config.prettyPrint(),
             globalUpdate,
             ciMode,
-            accessedPaths,
+            testRun.accessedPaths(),
             config.templateMode());
 
     // Store in method-level extension context
@@ -174,37 +166,29 @@ public class ThymeleafSnapshotExtension
     // Record only tests that completed without failing or aborting; a test that did not reach
     // its assertMatchesSnapshot calls must not allow its snapshots to be treated as orphans.
     if (context.getExecutionException().isEmpty()) {
-      getOrCreateCompletedMethods(context)
-          .add(qualifiedMethodName(context.getRequiredTestClass(), testMethod.getName()));
+      getOrCreateTestRun(context).recordCompletion(testMethod);
     }
   }
 
   @Override
   public void afterAll(ExtensionContext context) {
     ExtensionContext.Store classStore = context.getStore(NAMESPACE);
-    ResolvedConfig config =
-        ResolvedConfig.from(resolveSnapshotConfig(context.getRequiredTestClass()));
-    SnapshotManager manager = classStore.get(ManagerKey.of(config), SnapshotManager.class);
-    if (manager == null) {
-      return;
-    }
-
-    @SuppressWarnings("unchecked")
-    Set<Path> accessedPaths = (Set<Path>) classStore.get(ACCESSED_PATHS_KEY);
-    if (accessedPaths == null) {
-      return;
-    }
-
     Class<?> testClass = context.getRequiredTestClass();
-    String testClassName = testClass.getName();
+    ResolvedConfig config = ResolvedConfig.from(resolveSnapshotConfig(testClass));
+    SnapshotManager manager = classStore.get(ManagerKey.of(config), SnapshotManager.class);
+    SnapshotTestRun testRun = classStore.get(testClass, SnapshotTestRun.class);
+    if (manager == null || testRun == null) {
+      return;
+    }
 
-    @SuppressWarnings("unchecked")
-    Set<String> completedMethods = (Set<String>) classStore.get(COMPLETED_METHODS_KEY);
-    if (completedMethods == null
-        || !completedMethods.containsAll(declaredSnapshotTestMethods(testClass))) {
+    String testClassName = testClass.getName();
+    boolean globalUpdate =
+        SnapshotProperties.isUpdateEnabled() && !SnapshotProperties.isCiEnabled();
+
+    if (!testRun.isComplete()) {
       // Partial run: a --tests filter, @Disabled, an aborted assumption, or a failure means
       // some snapshots were legitimately not accessed — they must not be treated as orphans.
-      if (SnapshotProperties.isUpdateEnabled()) {
+      if (globalUpdate) {
         System.err.println(
             "[thymeleaf-snapshot] Skipping orphaned-snapshot cleanup for "
                 + testClassName
@@ -213,36 +197,7 @@ public class ThymeleafSnapshotExtension
       return;
     }
 
-    List<Path> orphans = manager.findOrphanedSnapshots(testClassName, accessedPaths);
-    if (orphans.isEmpty()) {
-      return;
-    }
-
-    boolean globalUpdate = SnapshotProperties.isUpdateEnabled();
-    for (Path orphan : orphans) {
-      if (globalUpdate) {
-        try {
-          Files.delete(orphan);
-          System.err.println("[thymeleaf-snapshot] Deleted orphaned snapshot: " + orphan);
-        } catch (IOException e) {
-          System.err.println(
-              "[thymeleaf-snapshot] Failed to delete orphaned snapshot: "
-                  + orphan
-                  + " ("
-                  + e.getMessage()
-                  + ")");
-        }
-      } else {
-        System.err.println(
-            "[thymeleaf-snapshot] Orphaned snapshot (not accessed in this test run): " + orphan);
-      }
-    }
-    if (!globalUpdate) {
-      System.err.println(
-          "[thymeleaf-snapshot] Run with -D"
-              + UPDATE_PROPERTY
-              + "=true to delete orphaned snapshots automatically.");
-    }
+    manager.handleOrphanedSnapshots(testClassName, testRun.accessedPaths(), globalUpdate);
   }
 
   @Override
@@ -289,45 +244,14 @@ public class ThymeleafSnapshotExtension
         SnapshotManager.class);
   }
 
-  /** Gets (or lazily creates) the shared set of accessed snapshot paths for this test class. */
-  @SuppressWarnings("unchecked")
-  private Set<Path> getOrCreateAccessedPaths(ExtensionContext context) {
-    return (Set<Path>)
-        getClassStore(context)
-            .getOrComputeIfAbsent(ACCESSED_PATHS_KEY, key -> ConcurrentHashMap.newKeySet());
-  }
-
   /**
-   * Gets (or lazily creates) the shared set of successfully completed {@link SnapshotTest} method
-   * names (qualified as {@code <class>#<method>}) for this test class run.
+   * Keys mutable run state by test class so nested classes cannot inherit an enclosing class's
+   * state through the store's ancestor lookup.
    */
-  @SuppressWarnings("unchecked")
-  private Set<String> getOrCreateCompletedMethods(ExtensionContext context) {
-    return (Set<String>)
-        getClassStore(context)
-            .getOrComputeIfAbsent(COMPLETED_METHODS_KEY, key -> ConcurrentHashMap.newKeySet());
-  }
-
-  /**
-   * Returns the qualified names ({@code <class>#<method>}) of every {@link SnapshotTest} method a
-   * full run of the given class would execute, including methods inherited from superclasses.
-   * Methods of {@code @Nested} classes are not included; each nested class is checked by its own
-   * {@code afterAll} invocation.
-   */
-  static Set<String> declaredSnapshotTestMethods(Class<?> testClass) {
-    Set<String> qualifiedNames = new HashSet<>();
-    for (Class<?> cls = testClass; cls != null && cls != Object.class; cls = cls.getSuperclass()) {
-      for (Method method : cls.getDeclaredMethods()) {
-        if (method.getAnnotation(SnapshotTest.class) != null) {
-          qualifiedNames.add(qualifiedMethodName(testClass, method.getName()));
-        }
-      }
-    }
-    return qualifiedNames;
-  }
-
-  private static String qualifiedMethodName(Class<?> testClass, String methodName) {
-    return testClass.getName() + "#" + methodName;
+  private SnapshotTestRun getOrCreateTestRun(ExtensionContext context) {
+    return getClassStore(context)
+        .getOrComputeIfAbsent(
+            context.getRequiredTestClass(), SnapshotTestRun::new, SnapshotTestRun.class);
   }
 
   /** Returns the class-level store for caching shared objects. */

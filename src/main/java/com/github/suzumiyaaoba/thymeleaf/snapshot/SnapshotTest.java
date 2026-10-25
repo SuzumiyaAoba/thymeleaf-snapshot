@@ -60,7 +60,9 @@ public @interface SnapshotTest {
    * snapshot is overwritten with the current rendering result regardless of whether it matches.
    *
    * <p><strong>Note:</strong> This should only be used during development. The global system
-   * property {@code -Dsnapshot.update=true} can also be used to update all snapshots at once.
+   * property {@code -Dsnapshot.update=true} can also be used to update all snapshots at once. Both
+   * update mechanisms are rejected with an {@link IllegalStateException} when {@code
+   * -Dsnapshot.ci=true} is enabled, before the test method runs.
    *
    * @return {@code true} if the snapshot should be updated
    */

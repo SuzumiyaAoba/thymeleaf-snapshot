@@ -1,6 +1,6 @@
 /**
  * Thymeleaf Snapshot Testing — a library for snapshot-based regression testing of Thymeleaf
- * template rendering, integrated with JUnit 5.
+ * template rendering, integrated with JUnit Jupiter 5.11.4+ and 6. Requires Java 21 or later.
  *
  * <h2>Quick Start</h2>
  *
@@ -20,8 +20,8 @@
  * <h2>Key Components</h2>
  *
  * <ul>
- *   <li>{@link com.github.suzumiyaaoba.thymeleaf.snapshot.ThymeleafSnapshotExtension} — JUnit 5
- *       extension that manages the snapshot test lifecycle
+ *   <li>{@link com.github.suzumiyaaoba.thymeleaf.snapshot.ThymeleafSnapshotExtension} — JUnit
+ *       Jupiter extension that manages the snapshot test lifecycle
  *   <li>{@link com.github.suzumiyaaoba.thymeleaf.snapshot.SnapshotTest} — annotation that marks a
  *       test method as a snapshot test
  *   <li>{@link com.github.suzumiyaaoba.thymeleaf.snapshot.Snapshot} — user-facing API for setting

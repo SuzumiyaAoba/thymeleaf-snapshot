@@ -209,8 +209,7 @@ public final class SnapshotManager {
    * current test run.
    *
    * <p>A file is considered orphaned when it exists on disk but its path was never recorded by
-   * {@link #resolveSnapshotPath} during this run — typically because the test method was renamed or
-   * deleted.
+   * {@link Snapshot} during this run — typically because the test method was renamed or deleted.
    *
    * @param testClassName the fully qualified test class name
    * @param accessedPaths the set of snapshot paths that were accessed in this run
@@ -238,6 +237,39 @@ public final class SnapshotManager {
     }
     Collections.sort(orphans);
     return Collections.unmodifiableList(orphans);
+  }
+
+  /** Reports orphaned files, or deletes them when cleanup is allowed for a complete test run. */
+  void handleOrphanedSnapshots(
+      String testClassName, Set<Path> accessedPaths, boolean deleteOrphans) {
+    List<Path> orphans = findOrphanedSnapshots(testClassName, accessedPaths);
+    if (orphans.isEmpty()) {
+      return;
+    }
+    for (Path orphan : orphans) {
+      if (deleteOrphans) {
+        try {
+          Files.delete(orphan);
+          System.err.println("[thymeleaf-snapshot] Deleted orphaned snapshot: " + orphan);
+        } catch (IOException e) {
+          System.err.println(
+              "[thymeleaf-snapshot] Failed to delete orphaned snapshot: "
+                  + orphan
+                  + " ("
+                  + e.getMessage()
+                  + ")");
+        }
+      } else {
+        System.err.println(
+            "[thymeleaf-snapshot] Orphaned snapshot (not accessed in this test run): " + orphan);
+      }
+    }
+    if (!deleteOrphans) {
+      System.err.println(
+          "[thymeleaf-snapshot] Run with -D"
+              + SnapshotProperties.UPDATE
+              + "=true to delete orphaned snapshots automatically.");
+    }
   }
 
   /**

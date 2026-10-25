@@ -7,10 +7,11 @@ import static org.junit.platform.engine.discovery.DiscoverySelectors.selectMetho
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -101,24 +102,51 @@ class OrphanCleanupGuardTest {
   }
 
   @Test
-  void declaredSnapshotTestMethodsIncludesInheritedMethods() {
-    abstract class Base {
-      @SnapshotTest(inlineTemplate = "<p>base</p>")
-      void baseTest(Snapshot snapshot) {}
-    }
-    class Child extends Base {
-      @SnapshotTest(inlineTemplate = "<p>child</p>")
-      void childTest(Snapshot snapshot) {}
+  void fullRunIncludesInheritedSnapshotMethods() throws IOException {
+    Path classDir = fixtureClassDir(InheritedFixture.class);
+    Path staleSnapshot = Files.writeString(classDir.resolve("obsolete.html"), "<p>gone</p>");
 
-      @SuppressWarnings("unused")
-      void notASnapshotTest() {}
-    }
+    TestExecutionSummary summary = launch(selectClass(InheritedFixture.class));
 
-    Set<String> declared = ThymeleafSnapshotExtension.declaredSnapshotTestMethods(Child.class);
+    assertThat(summary.getTestsSucceededCount()).isEqualTo(2);
+    assertThat(summary.getTotalFailureCount()).isZero();
+    assertThat(staleSnapshot).doesNotExist();
+    assertThat(classDir.resolve("inherited.html")).content().isEqualTo("<p>base</p>");
+    assertThat(classDir.resolve("child.html")).content().isEqualTo("<p>child</p>");
+  }
 
-    assertThat(declared)
-        .containsExactlyInAnyOrder(
-            Child.class.getName() + "#baseTest", Child.class.getName() + "#childTest");
+  @Test
+  void filteredRunKeepsSnapshotsOfInheritedTests() throws IOException {
+    Path classDir = fixtureClassDir(InheritedFixture.class);
+    Path inheritedSnapshot = Files.writeString(classDir.resolve("inherited.html"), "<p>base</p>");
+    Path staleSnapshot = Files.writeString(classDir.resolve("obsolete.html"), "<p>gone</p>");
+
+    TestExecutionSummary summary =
+        launch(selectMethod(InheritedFixture.class, "child", Snapshot.class));
+
+    assertThat(summary.getTestsSucceededCount()).isEqualTo(1);
+    assertThat(summary.getTotalFailureCount()).isZero();
+    assertThat(inheritedSnapshot).content().isEqualTo("<p>base</p>");
+    assertThat(staleSnapshot).exists();
+  }
+
+  @Test
+  void nestedRunDoesNotCountEnclosingMethodsWithTheSameName() throws IOException {
+    Path outerDir = fixtureClassDir(NestedFixture.class);
+    Path outerOrphan = Files.writeString(outerDir.resolve("obsolete.html"), "<p>gone</p>");
+    Path nestedDir = fixtureClassDir(NestedFixture.PartialNestedFixture.class);
+    Path skippedSnapshot = Files.writeString(nestedDir.resolve("render.html"), "<p>kept</p>");
+    Path nestedOrphan = Files.writeString(nestedDir.resolve("obsolete.html"), "<p>gone</p>");
+
+    TestExecutionSummary summary = launch(selectClass(NestedFixture.class));
+
+    assertThat(summary.getTestsSucceededCount()).isEqualTo(2);
+    assertThat(summary.getTestsSkippedCount()).isEqualTo(1);
+    assertThat(summary.getTotalFailureCount()).isZero();
+    assertThat(outerOrphan).doesNotExist();
+    assertThat(skippedSnapshot).content().isEqualTo("<p>kept</p>");
+    assertThat(nestedOrphan).exists();
+    assertThat(nestedDir.resolve("active.html")).content().isEqualTo("<p>active</p>");
   }
 
   private Path fixtureClassDir(Class<?> fixtureClass) throws IOException {
@@ -169,6 +197,45 @@ class OrphanCleanupGuardTest {
     @SnapshotTest(inlineTemplate = "<p>aborted</p>")
     void aborted(Snapshot snapshot) {
       Assumptions.assumeTrue(false, "intentionally aborted");
+    }
+  }
+
+  abstract static class BaseFixture {
+    @SnapshotTest(inlineTemplate = "<p>base</p>")
+    void inherited(Snapshot snapshot) {
+      snapshot.assertMatchesSnapshot();
+    }
+  }
+
+  @ExtendWith(ThymeleafSnapshotExtension.class)
+  @EnabledIfSystemProperty(named = FIXTURE_FLAG, matches = "true")
+  static class InheritedFixture extends BaseFixture {
+    @SnapshotTest(inlineTemplate = "<p>child</p>")
+    void child(Snapshot snapshot) {
+      snapshot.assertMatchesSnapshot();
+    }
+  }
+
+  @ExtendWith(ThymeleafSnapshotExtension.class)
+  @EnabledIfSystemProperty(named = FIXTURE_FLAG, matches = "true")
+  static class NestedFixture {
+    @SnapshotTest(inlineTemplate = "<p>outer</p>")
+    void render(Snapshot snapshot) {
+      snapshot.assertMatchesSnapshot();
+    }
+
+    @Nested
+    class PartialNestedFixture {
+      @SnapshotTest(inlineTemplate = "<p>active</p>")
+      void active(Snapshot snapshot) {
+        snapshot.assertMatchesSnapshot();
+      }
+
+      @Disabled("intentionally skipped")
+      @SnapshotTest(inlineTemplate = "<p>kept</p>")
+      void render(Snapshot snapshot) {
+        snapshot.assertMatchesSnapshot();
+      }
     }
   }
 }

@@ -1,8 +1,10 @@
 # thymeleaf-snapshot
 
-Snapshot testing library for [Thymeleaf](https://www.thymeleaf.org/) template rendering, integrated with [JUnit 5](https://junit.org/junit5/).
+Snapshot testing library for [Thymeleaf](https://www.thymeleaf.org/) template rendering, integrated with [JUnit Jupiter](https://junit.org/).
 
 On first run, rendered output is saved as a snapshot file. Subsequent runs compare the output against that file and fail if they differ — catching unintended template regressions.
+
+Requires **Java 21+** and **JUnit Jupiter 5.11.4 or later**. The library compiles against the 5.11.4 API and is tested with JUnit 5.11.4 and 6.0.0. Its published dependencies do not include the test suite's JUnit 6 BOM; consumers choose their own JUnit version and must provide a matching Jupiter engine and Platform launcher.
 
 ## Installation
 
@@ -14,7 +16,14 @@ repositories {
 }
 
 dependencies {
+    testImplementation platform('org.junit:junit-bom:5.11.4') // Or your project's JUnit 6 BOM
     testImplementation 'com.github.SuzumiyaAoba:thymeleaf-snapshot:main-SNAPSHOT'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
 }
 ```
 
@@ -100,6 +109,7 @@ When the template output intentionally changes, update the stored snapshots:
 ```
 
 > **Note:** Remove `update = true` before committing — it suppresses assertion failures.
+> CI mode (`-Dsnapshot.ci=true`) rejects both `update = true` and `-Dsnapshot.update=true` before the test method runs. It never creates, overwrites, or deletes snapshot files.
 
 ## Configuration
 
@@ -131,7 +141,7 @@ class MyTest { ... }
 |---|---|
 | `snapshot.update` | Set to `true` to update all snapshot files |
 | `snapshot.baseDir` | Override the snapshot root directory (defaults to `src/test/resources/`) |
-| `snapshot.ci` | Set to `true` to fail (instead of auto-creating) when a snapshot file is missing. Add to your CI build command to ensure all snapshots are committed: `./gradlew test -Dsnapshot.ci=true` |
+| `snapshot.ci` | Set to `true` to require committed snapshots and reject update mode. Missing or mismatched snapshots fail; snapshot files are never created, overwritten, or deleted. |
 
 Example:
 ```bash
@@ -155,6 +165,13 @@ Working examples are in the [`sample/`](sample/) subproject. Run them with:
 
 ```bash
 ./gradlew :sample:test
+```
+
+The sample deliberately uses JUnit 5.11.4 to verify that the library does not upgrade a consumer to JUnit 6. To run the library's own compatibility checks:
+
+```bash
+./gradlew test build -PtestJunitVersion=5.11.4
+./gradlew test build -PtestJunitVersion=6.0.0
 ```
 
 ### [ProductListTest](sample/src/test/java/com/github/suzumiyaaoba/thymeleaf/snapshot/sample/ProductListTest.java)

@@ -8,6 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build and test
 ./gradlew test
 
+# Verify the minimum supported JUnit version (the default test suite uses 6.0.0)
+./gradlew test build -PtestJunitVersion=5.11.4
+
 # Single test class
 ./gradlew test --tests "com.github.suzumiyaaoba.thymeleaf.snapshot.SnapshotMismatchExceptionTest"
 
@@ -26,19 +29,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture
 
-This is a JUnit 5 extension library for snapshot testing of Thymeleaf templates. The flow is:
+This is a JUnit Jupiter extension library for snapshot testing of Thymeleaf templates. It requires Java 21+ and JUnit Jupiter 5.11.4+, with compatibility tested on 5.11.4 and 6.0.0. The published API dependency is `junit-jupiter-api:5.11.4`; the JUnit BOM is test-only so consumers retain control of their JUnit generation. The sample remains on JUnit 5.11.4. The flow is:
 
-1. **`ThymeleafSnapshotExtension`** (JUnit 5 `BeforeEachCallback` + `ParameterResolver`) — entry point. Reads `@SnapshotConfig` from the test class, constructs `ThymeleafRenderer` and `SnapshotManager` (cached at class level in the JUnit `ExtensionContext` store), then creates a per-test `Snapshot` instance and injects it into the test method parameter.
+1. **`ThymeleafSnapshotExtension`** (JUnit Jupiter lifecycle callbacks + `ParameterResolver`) — entry point. Reads `@SnapshotConfig` from the test class, constructs `ThymeleafRenderer` and `SnapshotManager` (cached at class level in the JUnit `ExtensionContext` store), then creates a per-test `Snapshot` instance and injects it into the test method parameter.
 
 2. **`Snapshot`** — user-facing API. Holds template variables and locale, calls `ThymeleafRenderer` to render, optionally pretty-prints via `HtmlFormatter`, then delegates to `SnapshotManager` for file comparison or creation.
 
-3. **`SnapshotManager`** — handles all file I/O. On construction with a `String` dir name, auto-detects the project root by walking up from the classloader resource URL looking for `build.gradle`/`pom.xml`. Overridable via `-Dsnapshot.baseDir=...`. Snapshot files live at `src/test/resources/__snapshots__/<FQCN>/<method>[<name>].html`.
+3. **`SnapshotManager`** — handles all file I/O, including reporting or deleting orphaned snapshots after a complete test run. On construction with a `String` dir name, auto-detects the project root by walking up from the classloader resource URL looking for `build.gradle`/`pom.xml`. Overridable via `-Dsnapshot.baseDir=...`. Snapshot files live at `src/test/resources/__snapshots__/<FQCN>/<method>[<name>].html`.
 
 4. **`ThymeleafRenderer`** — wraps two `TemplateEngine` instances: one with `ClassLoaderTemplateResolver` (for `@SnapshotTest(template=...)`) and one with `StringTemplateResolver` (for `@SnapshotTest(inlineTemplate=...)`). Both have caching disabled.
 
 5. **`SnapshotMismatchException`** — extends `AssertionError` (JUnit recognises it as a test failure). Uses `java-diff-utils` (`DiffUtils.diff` + `UnifiedDiffUtils.generateUnifiedDiff`) to produce a standard unified diff with `@@ -L,C +L,C @@` hunk headers.
 
 6. **`ResolvedConfig`** — record that merges `@SnapshotConfig` annotation values with defaults. Created fresh per-test-class; passed to both `ThymeleafRenderer` and `SnapshotManager`.
+
+7. **`SnapshotTestRun`** — tracks accessed snapshot paths and successfully completed methods for one test class, including inherited methods. Stored under the test class as a typed key so nested classes have independent run state. Incomplete runs skip orphan handling; CI mode always prohibits deletion.
 
 ### Key design constraints
 
